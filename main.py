@@ -71,52 +71,71 @@ def add_fund():
     holder = User.query.filter_by(username=session['username']).first()
     match = re.compile(r"[A-Z]{4}X")
     fund_match = match.fullmatch(fund_name)
-    fund_with_that_name = Fund.query.filter_by(fund_name=fund_name).count()
+    funds_with_that_name = Fund.query.filter_by(fund_name=fund_name).count()
     phone_contact = request.form['tel_contact']#TODO validate phone number (test call? send with code for reply)
     
     #TODO think about how to verify if it is actually a traded fund
 
-    fund_with_that_name = Fund.query.filter_by(fund_name=fund_name).filter_by(holder_id=holder.id).count()
-    # if fund_match: #and checked out as a real fund
-    #     print("========" + fund_name)
+    funds_with_that_name = Fund.query.filter_by(fund_name=fund_name).filter_by(holder_id=holder.id).count()
+    
         #TODO update num_shares if user already has that fund
-    if fund_match and fund_with_that_name == 0:
+    if fund_match and funds_with_that_name == 0:
         new_fund = Fund(fund_name, num_shares, freq, phone_num=phone_contact, holder=holder)
         db.session.add(new_fund)
         db.session.commit()
         return render_template('/confirmation.html', username=holder, phone=phone_contact, shares=num_shares, fundname=fund_name, frequency=freq)
 
-    elif fund_match and fund_with_that_name > 0:
+    elif fund_match and funds_with_that_name > 0:
         new_shares = float(request.form['num_shares'])
-        #TODO update num_shares for that fund
-        #old_num_shares = sqlalchemy.sql.column('num_shares')
-       #old_num_shares = SELECT num_shares FROM fund WHERE fund_name=fund_name
-        #old_num_shares = session.query(num_shares).filter_by(fund_name=fund_name)
-        
-        old_num_shares = Fund.select(num_shares).WHERE(fund_name=fund_name)
-        print(str(old_num_shares))
-        print(str(new_shares))
+        fund_with_same_name = Fund.query.filter_by(fund_name=fund_name).filter_by(holder_id=holder.id).first()
+        old_num_shares = fund_with_same_name.num_shares
         new_num_shares = old_num_shares + new_shares
-
-        #db.session.commit
-        #TODO ?share_update = UPDATE(fund).WHERE(fund.c.fund_name=fundname.values(num_shares=new_num_shares))
-        #UPDATE fund SET num_shares=new_num_shares value WHERE fundname=fundname#num_shares=old_num_shares
-
-        pass
-        flash("You already have this fund did you want to edit your amount of shares?", "negative")
-        return redirect("/edit")#TODO redirect to a different edit page that updates that fund or
-    #just redirect to edit with same fundname, contact-info and just num_shares blank.
+        username = session['username']    
+        return render_template("share-update.html", fund = fund_with_same_name, addition = new_shares, username = username)
+        #TODO check and see if user want to add more shares or RESET number of shares to new number
     else:
         flash("Not a valid fund", "negative")
         return render_template('edit.html', username=holder.username)
-#-----------------------------------------------------------------------------
+
+@app.route("/share-update", methods=['POST'])
+def update_shares_or_no():
+    answer = request.form['shares-update']
+
+    if answer == 'yes':
+        new_shares = request.form['num_shares']
+        fund_name = request.form['fund_name']
+        username = session['username']
+        _user = User.query.filter_by(username=username).first()
+        fund = Fund.query.filter_by(holder_id=_user.id).filter_by(fund_name=fund_name).first()  
+        return redirect('edit-funds/' + fund.fund_name + "/" + str(_user.id) + "/" + str(new_shares))
+    elif answer =='no':
+        username = session['username']
+        return render_template('edit.html', username=username)
+    elif answer == 'maybe':
+        return redirect('view-updates')
+
+@app.route("/edit-funds/<fund_name>/<user_id>/<new_shares>", methods=['GET'])
+def update_num_shares(fund_name, user_id, new_shares):
+    user_id = int(user_id)
+    new_shares = float(new_shares)
+    
+    fund_with_same_name = Fund.query.filter_by(fund_name=fund_name).filter_by(holder_id=user_id).first()
+    old_num_shares = fund_with_same_name.num_shares
+    
+    new_num_shares = old_num_shares + new_shares
+    fund_with_same_name.num_shares = new_num_shares
+    db.session.add(fund_with_same_name)
+    db.session.commit()
+    
+    flash(fund_name + " has been updated with " + str(new_shares) + " new shares.", "positive")
+    return redirect("view-updates")
+
 @app.route("/confo", methods=['POST'])
 def go_or_no():
     answer = request.form['confirm']
     
     if answer == 'yes':
-        print("+++++++++GOT IT ++++++++++++++++++")
-        
+    
         fundname = request.form['fundname']
         phone_num = request.form['phone']
         num_shares = request.form['shares']
@@ -131,15 +150,14 @@ def go_or_no():
     else:
         fundname = request.form['fundname']
         return remove_by_fundname(fundname)
-        #return redirect('/edit')#TODO redirect to remove-fund once that is functional
-        # return render_template('/delete-fund.html', fund=fundname)#TODO pass fundname
-
+       
 def getQuote(fundname):
     
     """retrieves the last price for fund"""
     try:
         fund_info = Share(fundname)
         return(fund_info.get_price())
+    #TODO following used for google-finance api
         # info = json.dumps(getQuotes(fundname))
         # data = json.loads(info)
         # data_dict = {k: v for d in data for k, v in d.items()}
@@ -200,6 +218,7 @@ def schedule_quote(fundname, num_shares, phone_num, frequency):#all this should 
              time.sleep(1)
          or 
         go by day of week"""
+        #TODO ask user for day of week
         schedule.every().saturday.at("9:05").do(send_quote, fundname, num_shares, phone_num)
         while True:
             schedule.run_pending()
@@ -251,7 +270,6 @@ def login():
 
 @app.route('/logout')
 def logout():
-    # pretty self explanatory
     try:
         if session['username']:
             del session['username']
@@ -263,7 +281,6 @@ def logout():
 
 @app.route('/view-updates')
 def show_updates():
-    #TODO show when updates scheduled
     try:
         if session['username']:
             username = session['username']
