@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>sorry {{ username }} still working on it!!   </h1>
+<!-- TODO for username iterated through Fund.Select all with holder = username -->
+<!-- {#<h2>Here's the funds {{ for fund : username.fund }}#} --> 
+<p>here are your funds for removal</p>   
+<ul>
+    {% for fund in funds %}
+        <li><a href="{{ url_for('remove_by_fundname', fundname=fund.fund_name) }}">{{ fund.fund_name }} </li>
+    {% endfor %}
+</ul>
+
+
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h3>Page under constructionn {{ username }}.</h3>
+<form action="/cancel-confirmed" method="post">
+<h3>Delete {{ fund }}</h3>
+<input type="submit" value="YUP!" name="delete" />
+</form>
+<!-- {#What fund do you want to delete {{for fund || funds}} #} -->
+{% endblock %}

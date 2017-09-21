@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Hey {{ username }}, enter a fund you'd like to receive updates for!</h1>
+
+<form action="/edit" method="post">
+
+<div><label for="fund">Track fund by ticker symbol</label>
+    <input type="text" name="fund" size="5" maxlength="5" />
+<div><label for="num_shares">How many shares do you have?</label>
+    <input type="number" min="0" step="0.001" name="num_shares"/>
+<div><label for="contact">Phone number to be contacted:</label>
+        <!--TODO radio button choice between email and phone number-->
+        <input type="tel" name="tel_contact"/>
+<!-- TODO radio button when/ frequency //will put conditionals in full app, ie if hit $4000// -->
+    <p>Pick how often you'd like updates for this fund, every?</p>
+    </br>
+    <input type="radio" name="frequency" value="quarter" /> Quarter
+    <input type="radio" name="frequency" value="month" /> Month
+    <input type="radio" name="frequency" value="week" /> Week
+    <input type="radio" name="frequency" value="day" checked="checked"/> Day (after market closed)
+    <!-- TODO add more options //if daily when, if weekly what day etc. -->
+
+
+<input type="submit" value="well?" />
+{% endblock %}

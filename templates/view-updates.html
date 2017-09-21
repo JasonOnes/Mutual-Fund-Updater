@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>sorry {{ username }} still working on it!!   </h1>
+<!-- TODO for username iterated through Fund.Select all with holder = username -->
+<!-- {#<h2>Here's the funds {{ for fund : username.fund }}#} --> 
+<p>here are your funds and the number of shares you have</p>   
+<ul>
+    {% for fund in funds %}
+        <li>{{ fund.fund_name }} with {{ fund.num_shares}} shares</li>
+    {% endfor %}
+</ul>
+{% endblock %}
