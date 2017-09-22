@@ -16,6 +16,7 @@ nav  {
  }
 
 nav ul {
+    /* font-size: 1.5rem; */
     padding: 0;
     display: inline-block;
     width: 100%;
@@ -72,3 +73,34 @@ label {
     margin-bottom: 1rem;
     width: 5rem;
 }
+
+/* .nav {
+    margin-bottom: 1rem;
+    background-color: orange;
+    z-index: 9999;
+    border: 1.5rem;
+    font-size: 1.5rem !important;
+    line-height: 1.42857143 !important;
+    letter-spacing: 4px;
+    border-radius: 0;
+    position: relative;
+}
+nav ul {
+    padding: 1rem;
+    width: 100%;
+    text-align: center;
+}
+.nav li a, .nav .nav-brand {
+    color: #fff !important;
+    text-align: center;
+} */
+
+/* .nav-nav li a:hover, .nav-nav li.active a {
+    color: #f4511e !important;
+    background-color: #fff !important;
+}
+
+.nav-default .nav-toggle {
+    border-color: transparent;
+    color: #fff !important;
+}   */
