@@ -1,5 +1,18 @@
 {% extends 'base.html' %}
 
 {% block content %}
-
+<h1>{{ username }}</h1>
+<form>
+<form action="/cancel2/" method='post'>
+<!--{# <form action="{{ url_for('del_user_yes_or_no', cancel=cancel) }}"   method="post">  #}-->
+    <h1>Do you really want to stop receiveing updates?</h1>
+    <br/>
+    <input type="radio" name="cancel" value="yes" /> 
+    Yes, I'd like to stop receiveing free updates on mutual funds.
+    <br/>
+    <input type="radio" name="cancel" value="no" checked="checked" />
+    NO, everything's fine, I got here by error.
+    <br/>
+    <input type="submit" value="okay"/>
+</form>
 {% endblock %}

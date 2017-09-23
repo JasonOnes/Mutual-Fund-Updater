@@ -110,8 +110,10 @@ def update_shares_or_no():
         return redirect('edit-funds/' + fund.fund_name + "/" + str(_user.id) + "/" + str(new_shares))
     elif answer =='no':
         username = session['username']
+        flash("No additional shares added.", "positive")
         return render_template('edit.html', username=username)
     elif answer == 'maybe':
+        flash("Here's the state of your funds currently.", "positive")
         return redirect('view-updates')
 
 @app.route("/edit-funds/<fund_name>/<user_id>/<new_shares>", methods=['GET'])
@@ -146,7 +148,7 @@ def go_or_no():
         #threadQuote = threading.Thread(target=go)
         threadQuote = threading.Thread(target=schedule_quote, args=[fundname, num_shares, phone_num, frequency])
         threadQuote.start() 
-        return render_template('/confo.html', fund=fundname)#, username=username)
+        return render_template('/confo.html', fund=fundname)
     else:
         fundname = request.form['fundname']
         return remove_by_fundname(fundname)
@@ -247,7 +249,7 @@ def login():
         try: 
             if session['username']:
                 flash("You're already logged in!", "positive")
-                return redirect("/")
+                return redirect("/view-updates")
         except KeyError:
             return render_template('login.html')
 
@@ -291,32 +293,18 @@ def show_updates():
         flash("You aren't logged in!", "negative")
         return redirect('/')
 
-@app.route('/delete-fund', methods=['GET', 'POST'])
+@app.route('/delete-fund')
 def get_delete():
-    if request.method == "GET":
-        try:
-            if session['username']:
-                username = session['username']
-                _user = User.query.filter_by(username=username).first()
-                funds = Fund.query.filter_by(holder_id=_user.id).all() 
-                return render_template('funds-for-removal.html', username=username, funds=funds)
-        except KeyError:
-            flash("You aren't logged in!", "negative")
-            return redirect('/')
-            
-
-    elif request.method == "POST":
-        pass
-        #remove_fund(session['fundname'])
-
-@app.route("/deleted")
-def deleted():
-    username = session['username']
-    _user = User.query.filter_by(username=username).first()
-    _fundname = session['fund_name']
-    fund = Fund.query.filter_by(fund_name=_fundname, holder_id=_user.id).first()
-    remove_by_fundname(fund)
-    return render_template('deleted.html', fund=fund)
+    try:
+        if session['username']:
+            username = session['username']
+            _user = User.query.filter_by(username=username).first()
+            funds = Fund.query.filter_by(holder_id=_user.id).all() 
+            return render_template('funds-for-removal.html', username=username, funds=funds)
+    except KeyError:
+        flash("You aren't logged in!", "negative")
+        return redirect('/')
+        
 
     """session.query(fund).filter(fundname = fundname).
     delete(synchronize_session=False)#look up set to false efficient but makes change only after 
@@ -329,11 +317,41 @@ def remove_by_fundname(fundname):
     return render_template('deleted.html', fund=fundname)
     
         
-@app.route('/cancel', methods=['POST']) #TODO add this functionality
+@app.route('/cancel', methods=['GET', 'POST']) #TODO add this functionality
+# @app.route('/cancel/', subdomain='<cancel>', methods=['POST'])
+@app.route('/cancel/<username>', methods=['POST'])
+
+def verify_cancel():
+    username = session['username']
+    print("%%%%%%%%%%%" + username)
+    return redirect('cancel/' + username)
+
+
+@app.route('/cancel2/<cancel>', methods=['POST'])
+def del_user_yes_or_no(cancel):
+    #answer = request.form['cancel']
+    answer = request.args.get('cancel')
+    print("***********" + answer)
+    #answer = request.form['cancel']
+    if cancel == 'yes':
+        username = session['username']
+        return redirect('cancel/' + username) 
+    elif cancel == 'no':
+        return redirect('/view-updates')
+
+@app.route('/cancel/<username>', methods=['GET', 'POST'])
 def del_user(username):
-    User.query.filter_by(id=username.id).delete()
+    user = User.query.filter_by(username=username).first()
+    funds = Fund.query.all()
+    for fund in funds:
+        if fund.holder_id == user.id:
+            Fund.query.filter_by(holder_id=user.id).delete()
+
+    User.query.filter_by(username=username).delete()
+    del session['username']
     db.session.commit()
-    return render_template('cancel-confirmed.html')
+    return render_template('cancel-confirmed.html', username=username)
+
 
 if __name__ == "__main__":
 
