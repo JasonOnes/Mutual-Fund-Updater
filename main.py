@@ -63,9 +63,8 @@ def edit():
         username = session['username']
         return add_fund()
        
-
 def add_fund():
-    fund_name = request.form['fund']#TODO make uppercase
+    fund_name = request.form['fund'].upper()
     num_shares = float(request.form['num_shares'])
     freq = request.form['frequency']
     holder = User.query.filter_by(username=session['username']).first()
@@ -78,7 +77,6 @@ def add_fund():
 
     funds_with_that_name = Fund.query.filter_by(fund_name=fund_name).filter_by(holder_id=holder.id).count()
     
-        #TODO update num_shares if user already has that fund
     if fund_match and funds_with_that_name == 0:
         new_fund = Fund(fund_name, num_shares, freq, phone_num=phone_contact, holder=holder)
         db.session.add(new_fund)
@@ -317,27 +315,19 @@ def remove_by_fundname(fundname):
     return render_template('deleted.html', fund=fundname)
     
         
-@app.route('/cancel', methods=['GET', 'POST']) #TODO add this functionality
-# @app.route('/cancel/', subdomain='<cancel>', methods=['POST'])
-@app.route('/cancel/<username>', methods=['POST'])
-
+@app.route('/cancel', methods=['GET', 'POST']) 
 def verify_cancel():
-    username = session['username']
-    print("%%%%%%%%%%%" + username)
-    return redirect('cancel/' + username)
-
-
-@app.route('/cancel2/<cancel>', methods=['POST'])
-def del_user_yes_or_no(cancel):
-    #answer = request.form['cancel']
-    answer = request.args.get('cancel')
-    print("***********" + answer)
-    #answer = request.form['cancel']
-    if cancel == 'yes':
+    if request.method == "GET":
         username = session['username']
-        return redirect('cancel/' + username) 
-    elif cancel == 'no':
-        return redirect('/view-updates')
+        return render_template('cancel.html', username=username)
+        
+    elif request.method == "POST":
+        answer = request.form['cancel']
+        if answer == 'yes':
+            username = session['username']
+            return redirect('cancel/' + username) 
+        elif answer == 'no':
+            return redirect('/view-updates')
 
 @app.route('/cancel/<username>', methods=['GET', 'POST'])
 def del_user(username):
