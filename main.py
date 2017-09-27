@@ -1,6 +1,7 @@
 from flask import request, redirect, render_template, url_for, flash, session
 # from googlefinance import getQuotes
 from yahoo_finance import Share 
+from yahoo_finance import YQLResponseMalformedError
 from requests.exceptions import ConnectionError
 from sqlalchemy import update 
 import json
@@ -145,7 +146,7 @@ def update_num_shares(fund_name, user_id, new_shares):
 @app.route("/confo", methods=['POST'])
 def go_or_no():
     answer = request.form['confirm']
-    
+    username = session['username']
     if answer == 'yes':
     
         fundname = request.form['fundname']
@@ -153,9 +154,19 @@ def go_or_no():
         num_shares = request.form['shares']
         frequency = request.form['freq']
 
-        #send_quote(fundname, num_shares, phone_num)
-        #go = schedule_quote(fundname, num_shares, phone_num, frequency)
-        #threadQuote = threading.Thread(target=go)
+        #tests if request with that fundname works before proceeding
+        try:
+            send_quote(fundname, num_shares, phone_num)
+            pass
+        except Exception: #more specific ? doesn't like decimal.InvalidOperation
+            # time.sleep(1)
+            # send_quote(fundname, num_shares, phone_num)
+            
+            flash("Not a currently traded fund, check spelling, or try again later.", "negative")
+            remove_by_fundname(fundname)
+            return render_template('edit.html', username=username)
+
+        #makes a thread of that fund so that multiple funds can be updated simultaneously
         threadQuote = threading.Thread(target=schedule_quote, args=[fundname, num_shares, phone_num, frequency])
         threadQuote.start() 
         return render_template('/confo.html', fund=fundname)
@@ -170,6 +181,7 @@ def getQuote(fundname):
         fund_info = Share(fundname)
         return(fund_info.get_price())
        
+
     #TODO following used for google-finance api
         # info = json.dumps(getQuotes(fundname))
         # data = json.loads(info)
@@ -179,6 +191,12 @@ def getQuote(fundname):
         msg = """Cannot connect to URL right now, check web connection or try
         later."""
         return msg
+
+    except YQLResponseMalformedError:
+        # attempt to retry function a second later due to yahoo bug, not sure if sound,
+        print("yahoo error")
+        time.sleep(1)
+        return getQuote(fundname) # infinite loop! limit number with conditional
 
 def current_value(fundname, num_shares):
     
@@ -206,7 +224,9 @@ def send_quote(fundname, num_shares, phone_num):# ,time_of_day)
     
     # account_sid = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
     # auth_token = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+    
 
+ 
     
  
     client = Client(account_sid, auth_token)
@@ -214,7 +234,7 @@ def send_quote(fundname, num_shares, phone_num):# ,time_of_day)
     message = client.messages.create(
         to=str(phone_num),
         #from_="XXXXXXXXXXXX",
-        
+       
        
 
         body=msg
@@ -233,7 +253,7 @@ def schedule_quote(fundname, num_shares, phone_num, frequency):#all this should 
     frequency = fundname.freq"""
 
     if frequency == "day":
-        schedule.every().day.at("17:15").do(send_quote, fundname, num_shares, phone_num)
+        schedule.every().day.at("9:59").do(send_quote, fundname, num_shares, phone_num)
         while True:
             schedule.run_pending()
             print("++++++++++++++GOING+++++++++++++")
@@ -262,7 +282,13 @@ def schedule_quote(fundname, num_shares, phone_num, frequency):#all this should 
         while True:
             schedule.run_pending()
             time.sleep(2629800)#secs in month
-    
+    elif frequency == "minutes":
+        #for testing purposes only
+        schedule.every(1).minutes.do(send_quote, fundname, num_shares, phone_num)
+        while True:
+            schedule.run_pending()
+            print("++++++++++++++GOING+++++++++++++")
+            time.sleep(1)
     """using datetime
     next_check = datetime.datetime(2017, 9, 1, 17, 0, 0) check again at 5pm Sep. 1 2017
     while datetime.datetime.now() < next_check:
