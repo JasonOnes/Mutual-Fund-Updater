@@ -71,8 +71,20 @@ def add_fund():
     match = re.compile(r"[A-Z]{4}X")
     fund_match = match.fullmatch(fund_name)
     funds_with_that_name = Fund.query.filter_by(fund_name=fund_name).count()
-    phone_contact = request.form['tel_contact']#TODO validate phone number (test call? send with code for reply)
+
+
+    phone_contact = (request.form['tel_contact'])#TODO validate phone number (test call? send with code for reply)
+    phone_match = re.compile(r"\([2-9][0-8][0-9]\)[2-9][0-9]{2}-[0-9]{4}") # NOrth American Numbering Plan
     
+    phone_is_recognized = phone_match.fullmatch(phone_contact)
+    print("+++++++++" + str(phone_is_recognized))
+    if phone_is_recognized:
+        pass
+    else:
+        flash("Not a valid American or Canadian phone number. Try again with (XXX)XXX-XXXX format.", "negative")
+        return render_template('edit.html', username=holder.username) 
+    #TODO return template with name, fund, and num_shares
+
     #TODO think about how to verify if it is actually a traded fund
 
     funds_with_that_name = Fund.query.filter_by(fund_name=fund_name).filter_by(holder_id=holder.id).count()
@@ -157,6 +169,7 @@ def getQuote(fundname):
     try:
         fund_info = Share(fundname)
         return(fund_info.get_price())
+       
     #TODO following used for google-finance api
         # info = json.dumps(getQuotes(fundname))
         # data = json.loads(info)
@@ -172,29 +185,44 @@ def current_value(fundname, num_shares):
     quote = getQuote(fundname)
     price = Money(quote, currency='USD')
     value = num_shares * price
-    msg = "Today you hold " + str(value) + " of {}.".format(fundname)
-    return msg
+    #msg = "Today you hold " + str(value) + " of {}.".format(fundname)
+    return value
 
 def send_quote(fundname, num_shares, phone_num):# ,time_of_day)
-    msg = current_value(fundname, num_shares)
+    value = current_value(fundname, num_shares)
+    # TODO maybe put target conditionals here, if int(value) = fundname.target_value: msg else: pass (?)
+    msg = "Today you hold " + str(value) + " of {}.".format(fundname)
+    
+    """ add a target paramater to send_quote target, then convert to money for comparison?"""
+    # if fundname == "VGPMX" and value >= Money(4000, currency='USD'): #compare value to money instance of set value
+    #     return(fund_info.get_price)
+    # elif fundname == "VTSMX" and value >= Money(10000, currency='USD'):
+    #     return(fund_info.get_price)
+    # else:
+    #     pass
     """
     #TODO make sure to blank out below tokens and code before git push !!!!
     """
-    #account_sid = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-    #auth_token = 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
     
+    # account_sid = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+    # auth_token = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+
+    
+ 
     client = Client(account_sid, auth_token)
     
     message = client.messages.create(
-        to=str(phone_num),#TODO may need to strip off non numeric chars
+        to=str(phone_num),
         #from_="XXXXXXXXXXXX",
         
+       
+
         body=msg
     )
     return print(message.sid)
 
 def schedule_quote(fundname, num_shares, phone_num, frequency):#all this should be in fund class (name, frequency, time, num_shares, contact):
-    #TODO consider using datetime.timedelta
+    #TODO consider using datetime.timedelta or chron
     #TODO introduce fund as Thread object
     # list_funds = Fund.query.select_all().holder_id=User.id 
     # for fund in list_funds:
@@ -205,7 +233,7 @@ def schedule_quote(fundname, num_shares, phone_num, frequency):#all this should 
     frequency = fundname.freq"""
 
     if frequency == "day":
-        schedule.every().day.at("16:45").do(send_quote, fundname, num_shares, phone_num)
+        schedule.every().day.at("17:15").do(send_quote, fundname, num_shares, phone_num)
         while True:
             schedule.run_pending()
             print("++++++++++++++GOING+++++++++++++")

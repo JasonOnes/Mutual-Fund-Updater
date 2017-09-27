@@ -4,13 +4,13 @@
 <h1>Here is a current list of your funds {{ username }}!   </h1>
 
 {% if funds %}
-<p>here are your funds and the number of shares you have</p>
+<p>Here are your funds and the number of shares you have:</p>
 {% else %}
 <p>You currently don't have any funds scheduled for updates.</p>   
 {% endif %}
 <ul>
     {% for fund in funds %}
-        <li>{{ fund.fund_name }} has {{ fund.num_shares}} shares and will update you {{ fund.freq }}</li>
+        <li>{{ fund.fund_name }} has {{ fund.num_shares}} shares and will update you every {{ fund.freq }}</li>
     {% endfor %}
 </ul>
 {% endblock %}
