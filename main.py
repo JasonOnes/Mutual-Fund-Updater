@@ -1,7 +1,7 @@
 from flask import request, redirect, render_template, url_for, flash, session
 # from googlefinance import getQuotes
-from yahoo_finance import Share 
-from yahoo_finance import YQLResponseMalformedError
+from yahoo_finance import Share, YQLResponseMalformedError
+import urllib
 from requests.exceptions import ConnectionError
 from sqlalchemy import update 
 import json
@@ -10,7 +10,8 @@ import requests
 from moneyed import Money, USD
 from twilio.rest import Client 
 import schedule #TODO look into APScheduler
-import time #TODO from time import sleep ==> just sleep(secs) not time.sleep(secs)
+
+from time import sleep #TODO from time import sleep ==> just sleep(secs) not time.sleep(secs)
 import threading
 from models import User, Fund
 from app import app, db
@@ -66,7 +67,12 @@ def edit():
        
 def add_fund():
     fund_name = request.form['fund'].upper()
-    num_shares = float(request.form['num_shares'])
+    # check to see if form field filled if not default to 1
+    if request.form['num_shares']:
+        num_shares = float(request.form['num_shares'])
+    else:
+        num_shares = 1.0
+
     freq = request.form['frequency']
     holder = User.query.filter_by(username=session['username']).first()
     match = re.compile(r"[A-Z]{4}X")
@@ -187,18 +193,20 @@ def getQuote(fundname):
         # data = json.loads(info)
         # data_dict = {k: v for d in data for k, v in d.items()}
         # return(data_dict['LastTradePrice'])
-    except ConnectionError:# URLError:
-        msg = """Cannot connect to URL right now, check web connection or try
-        later."""
-        return msg
 
     except YQLResponseMalformedError:
         # attempt to retry function a second later due to yahoo bug, not sure if sound,
         print("yahoo error")
-        time.sleep(1)
+        sleep(1)
         return getQuote(fundname) # infinite loop! limit number with conditional
 
-def current_value(fundname, num_shares):
+    except urllib.error.HTTPError:
+        # attempt to retry function a second later due to yahoo bug, not sure if sound,
+        print("yahoo error")
+        sleep(1)
+        return getQuote(fundname) # if api dead infinite loop! limit number with conditional + send warning to user?
+    
+def current_value(fundname, num_shares): 
     
     quote = getQuote(fundname)
     price = Money(quote, currency='USD')
@@ -227,6 +235,9 @@ def send_quote(fundname, num_shares, phone_num):# ,time_of_day)
     
 
  
+ 
+
+ 
     
  
     client = Client(account_sid, auth_token)
@@ -241,7 +252,7 @@ def send_quote(fundname, num_shares, phone_num):# ,time_of_day)
     )
     return print(message.sid)
 
-def schedule_quote(fundname, num_shares, phone_num, frequency):#all this should be in fund class (name, frequency, time, num_shares, contact):
+def schedule_quote(fundname, num_shares, phone_num, frequency, keep_going=True):#all this should be in fund class (name, frequency, time, num_shares, contact):
     #TODO consider using datetime.timedelta or chron
     #TODO introduce fund as Thread object
     # list_funds = Fund.query.select_all().holder_id=User.id 
@@ -257,7 +268,7 @@ def schedule_quote(fundname, num_shares, phone_num, frequency):#all this should 
         while True:
             schedule.run_pending()
             print("++++++++++++++GOING+++++++++++++")
-            time.sleep(60)#TODO timestamp when app run started to see if 24 hours to check?
+            sleep(60)#TODO timestamp when app run started to see if 24 hours to check?
     elif frequency == "week":
         """
          schedule.every().week.do(send_quote, fundname, num_shares, phone_num
@@ -270,30 +281,33 @@ def schedule_quote(fundname, num_shares, phone_num, frequency):#all this should 
         schedule.every().saturday.at("9:05").do(send_quote, fundname, num_shares, phone_num)
         while True:
             schedule.run_pending()
-            time.sleep(59) #59 or a minus 1 increment may produce two alerts
+            sleep(59) #59 or a minus 1 increment may produce two alerts
             #time.sleep(86400)#secs in day
     elif frequency == "month":
         schedule.every(4).weeks.at("17:52").do(send_quote, fundname, num_shares, phone_num) #leapyear?
         while True:
             schedule.run_pending()
-            time.sleep(604800)#secs in week
+            sleep(604800)#secs in week
     elif frequency == "quarter":
         schedule.every(13).weeks.do(send_quote, fundname, num_shares, phone_num)
         while True:
             schedule.run_pending()
-            time.sleep(2629800)#secs in month
+            sleep(2629800)#secs in month
     elif frequency == "minutes":
         #for testing purposes only
         schedule.every(1).minutes.do(send_quote, fundname, num_shares, phone_num)
-        while True:
+        while keep_going:
             schedule.run_pending()
             print("++++++++++++++GOING+++++++++++++")
-            time.sleep(1)
-    """using datetime
-    next_check = datetime.datetime(2017, 9, 1, 17, 0, 0) check again at 5pm Sep. 1 2017
-    while datetime.datetime.now() < next_check:
-        time.sleep(1)  check condition once per second"""
-
+            sleep(10)
+    elif frequency == "never":
+        print("=============stop==============")
+        #schedule.cancel(send_quote) no cancel function
+    # """using datetime
+    # next_check = datetime.datetime(2017, 9, 1, 17, 0, 0) check again at 5pm Sep. 1 2017
+    # while datetime.datetime.now() < next_check:
+    #     time.sleep(1)  check condition once per second"""
+     
 
 @app.route('/login',methods=['GET', 'POST'])
 def login():
@@ -389,9 +403,16 @@ def del_user(username):
     funds = Fund.query.all()
     for fund in funds:
         if fund.holder_id == user.id:
+            """TODO stop sending updates,
+            unschedule_updates function perhaps?"""
+            #fund.unschedule_updates()
+            fund.freq = "never"
+            #remove_by_fundname(fund.fund_name)
+            schedule_quote(fund.fund_name, fund.num_shares, fund.phone_num, frequency="never", keep_going=False)
             Fund.query.filter_by(holder_id=user.id).delete()
 
     User.query.filter_by(username=username).delete()
+    
     del session['username']
     db.session.commit()
     return render_template('cancel-confirmed.html', username=username)

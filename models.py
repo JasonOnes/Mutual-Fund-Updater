@@ -1,6 +1,6 @@
 from app import db
 from hashutils import make_pw_hash
-
+from sqlalchemy.orm import validates
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -27,6 +27,12 @@ class Fund(db.Model):
     "TODO add frequency of updates to Fund class"
     holder_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     
+    #TODO look into validation at model level
+    # __tablename__ = 'num_shares'
+    # @validates('num_shares')
+    # def validate_shares(self, key, num_shares):
+    #     assert int in num_shares
+    #     return num_shares
 
     def __init__(self, fund_name, num_shares, freq, phone_num, holder):
         self.fund_name = fund_name

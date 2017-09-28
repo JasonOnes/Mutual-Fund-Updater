@@ -6,7 +6,6 @@ app = Flask(__name__)
 # app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://Val-Aver:XXXXXXXXX@localhost:3306/Val-Aver'
 
  
-
  
 
 app.config['SQLALCHEMY_ECHO'] = True
