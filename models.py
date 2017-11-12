@@ -24,6 +24,9 @@ class Fund(db.Model):
     freq = db.Column(db.String(10))
     phone_num = db.Column(db.String(20))
     e_mail = db.Column(db.String(50))
+    #TODO change proc_num to proc object?
+    #proc = db.Column(db.Process)
+    proc_num = db.Column(db.Float)
     "TODO add frequency of updates to Fund class"
     holder_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     
@@ -34,10 +37,13 @@ class Fund(db.Model):
     #     assert int in num_shares
     #     return num_shares
 
-    def __init__(self, fund_name, num_shares, freq, phone_num, holder):
+    def __init__(self, fund_name, num_shares, freq, phone_num, holder_id, proc_num=None):
         self.fund_name = fund_name
         self.num_shares = num_shares
         self.freq = freq
         self.phone_num = phone_num
-        self.holder = holder
+        self.holder_id = holder_id
+        
+        self.proc_num = proc_num
+
         

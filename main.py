@@ -10,13 +10,21 @@ import requests
 from moneyed import Money, USD
 from twilio.rest import Client 
 import schedule #TODO look into APScheduler
+from bs4 import BeautifulSoup as bs 
 
-from time import sleep #TODO from time import sleep ==> just sleep(secs) not time.sleep(secs)
+import os 
+from multiprocessing import Process
+import psutil
+from subprocess import Popen
+
+from time import sleep 
 import threading
+from concurrent import futures
+
 from models import User, Fund
 from app import app, db
 from hashutils import check_pw_hash
-
+from threader import Threader
 
 @app.route('/')
 def _home():
@@ -97,7 +105,7 @@ def add_fund():
     funds_with_that_name = Fund.query.filter_by(fund_name=fund_name).filter_by(holder_id=holder.id).count()
     
     if fund_match and funds_with_that_name == 0:
-        new_fund = Fund(fund_name, num_shares, freq, phone_num=phone_contact, holder=holder)
+        new_fund = Fund(fund_name, num_shares, freq, phone_num=phone_contact, holder_id=holder.id)
         db.session.add(new_fund)
         db.session.commit()
         return render_template('/confirmation.html', username=holder, phone=phone_contact, shares=num_shares, fundname=fund_name, frequency=freq)
@@ -151,30 +159,55 @@ def update_num_shares(fund_name, user_id, new_shares):
 
 @app.route("/confo", methods=['POST'])
 def go_or_no():
+    
     answer = request.form['confirm']
     username = session['username']
+    user = User.query.filter_by(username=username).first()
+    print("#############" + str(user))
+    user_id = user.id 
+    #funds_to_run = Fund.query.filter_by(holder_id=user_id).all()
+    
     if answer == 'yes':
     
         fundname = request.form['fundname']
         phone_num = request.form['phone']
         num_shares = request.form['shares']
         frequency = request.form['freq']
-
+        
         #tests if request with that fundname works before proceeding
+        #send_quote(fundname, num_shares, phone_num)
         try:
             send_quote(fundname, num_shares, phone_num)
             pass
         except Exception: #more specific ? doesn't like decimal.InvalidOperation
             # time.sleep(1)
             # send_quote(fundname, num_shares, phone_num)
-            
             flash("Not a currently traded fund, check spelling, or try again later.", "negative")
             remove_by_fundname(fundname)
             return render_template('edit.html', username=username)
 
-        #makes a thread of that fund so that multiple funds can be updated simultaneously
-        threadQuote = threading.Thread(target=schedule_quote, args=[fundname, num_shares, phone_num, frequency])
-        threadQuote.start() 
+
+        #Like threading but with multiprocessing
+        proc = Process(name=fundname, target=schedule_quote, args=[fundname, num_shares, phone_num, frequency])
+        proc.start()
+        #p = psutil.Process(proc.pid)
+        num = proc.pid
+        
+        #print("^^^^^^^^^^^^^^" + p)
+        print("##################" + str(num))
+        print("Name:    " + proc.name)
+        print("PROC%%%%%%%%%%%%%%%%%%%%%%%%%%%" + str(proc))
+        p_num = str(proc)[17]
+        fund_to_run = Fund.query.filter_by(holder_id=user.id).filter_by(fund_name=fundname).first()  
+        #fund_to_run = Fund.query.filter_by(holder_id=user_id).first()
+        fund_to_run.proc_num = num
+        #fund_to_run = Fund(fund_name=fundname, num_shares=num_shares, freq=frequency, phone_num=phone_num, holder_id=user_id, proc_num=p_num)
+        db.session.add(fund_to_run)
+        db.session.commit()
+        
+
+        #proc.start()
+
         return render_template('/confo.html', fund=fundname)
     else:
         fundname = request.form['fundname']
@@ -184,9 +217,24 @@ def getQuote(fundname):
     
     """retrieves the last price for fund"""
     try:
+        #below for yahoofinance api
+        """
         fund_info = Share(fundname)
         return(fund_info.get_price())
-       
+       """
+        data = []
+        url = "https://finance.yahoo.com/quote/" + fundname + "/history/"
+        rows = bs(urllib.request.urlopen(url).read()).findAll('table')[0].tbody.findAll('tr')
+
+        for each_row in rows:
+            divs = each_row.findAll('td')
+            if divs[1].span.text  != 'Dividend': #Ignore this row in the table
+                #Only interested in 'Close' price; For other values, play with divs[1 - 5]
+                data.append(float(divs[4].span.text.replace(',','')))
+
+        return data[0]
+
+
 
     #TODO following used for google-finance api
         # info = json.dumps(getQuotes(fundname))
@@ -194,15 +242,16 @@ def getQuote(fundname):
         # data_dict = {k: v for d in data for k, v in d.items()}
         # return(data_dict['LastTradePrice'])
 
+
     except YQLResponseMalformedError:
         # attempt to retry function a second later due to yahoo bug, not sure if sound,
-        print("yahoo error")
+        print("yahoo error, yql")
         sleep(1)
         return getQuote(fundname) # infinite loop! limit number with conditional
 
     except urllib.error.HTTPError:
         # attempt to retry function a second later due to yahoo bug, not sure if sound,
-        print("yahoo error")
+        print("yahoo error, urlib")
         sleep(1)
         return getQuote(fundname) # if api dead infinite loop! limit number with conditional + send warning to user?
     
@@ -233,19 +282,13 @@ def send_quote(fundname, num_shares, phone_num):# ,time_of_day)
     # account_sid = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
     # auth_token = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
     
-
- 
- 
-
- 
-    
  
     client = Client(account_sid, auth_token)
     
     message = client.messages.create(
         to=str(phone_num),
         #from_="XXXXXXXXXXXX",
-       
+    
        
 
         body=msg
@@ -264,7 +307,7 @@ def schedule_quote(fundname, num_shares, phone_num, frequency, keep_going=True):
     frequency = fundname.freq"""
 
     if frequency == "day":
-        schedule.every().day.at("9:59").do(send_quote, fundname, num_shares, phone_num)
+        schedule.every().day.at("17:40").do(send_quote, fundname, num_shares, phone_num)
         while True:
             schedule.run_pending()
             print("++++++++++++++GOING+++++++++++++")
@@ -278,7 +321,7 @@ def schedule_quote(fundname, num_shares, phone_num, frequency, keep_going=True):
          or 
         go by day of week"""
         #TODO ask user for day of week
-        schedule.every().saturday.at("9:05").do(send_quote, fundname, num_shares, phone_num)
+        schedule.every().friday.at("17:45").do(send_quote, fundname, num_shares, phone_num)
         while True:
             schedule.run_pending()
             sleep(59) #59 or a minus 1 increment may produce two alerts
@@ -371,13 +414,30 @@ def get_delete():
         flash("You aren't logged in!", "negative")
         return redirect('/')
         
-
+    
     """session.query(fund).filter(fundname = fundname).
     delete(synchronize_session=False)#look up set to false efficient but makes change only after 
     commit(?)"""
     
 @app.route('/deleted/<fundname>')
 def remove_by_fundname(fundname):
+    fund_to_stop = Fund.query.filter_by(fund_name=fundname).first()
+   #TODO find whih proc to stop
+    #proc = Process.name(fundname)
+    print(proc)
+    print("Alive?   " + proc.isalive())
+    proc.terminate()
+    print("Alive?   " + proc.isalive())
+    proc.join()
+    print("Alive?   " + proc.isalive())
+    
+    num = os.getpid()
+    print("::::::::::::::::::::" + str(num))
+    #pid = fund_to_stop.proc_num
+    #pid.terminate
+    proc = psutil.Process(pid)
+    print(";;;;;;;;;;;;;;;;;;;;" + str(proc))
+    proc.terminate()
     Fund.query.filter_by(fund_name=fundname).delete()
     db.session.commit()
     return render_template('deleted.html', fund=fundname)
