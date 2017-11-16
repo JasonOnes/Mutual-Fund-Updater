@@ -1,30 +1,22 @@
 from flask import request, redirect, render_template, url_for, flash, session
-# from googlefinance import getQuotes
-from yahoo_finance import Share, YQLResponseMalformedError
-import urllib
-from requests.exceptions import ConnectionError
 from sqlalchemy import update 
 import json
 import re
 import requests
-from moneyed import Money, USD
-from twilio.rest import Client 
-import schedule #TODO look into APScheduler
-from bs4 import BeautifulSoup as bs 
 
-import os 
-from multiprocessing import Process
-import psutil
-from subprocess import Popen
+# import os 
+# from multiprocessing import Process
+# import psutil
+# from subprocess import Popen
 
-from time import sleep 
 import threading
-from concurrent import futures
+#from concurrent import futures
 
 from models import User, Fund
 from app import app, db
 from hashutils import check_pw_hash
 from threader import Threader
+from fundstuff import *
 
 @app.route('/')
 def _home():
@@ -92,7 +84,7 @@ def add_fund():
     phone_match = re.compile(r"\([2-9][0-8][0-9]\)[2-9][0-9]{2}-[0-9]{4}") # NOrth American Numbering Plan
     
     phone_is_recognized = phone_match.fullmatch(phone_contact)
-    print("+++++++++" + str(phone_is_recognized))
+   
     if phone_is_recognized:
         pass
     else:
@@ -163,7 +155,6 @@ def go_or_no():
     answer = request.form['confirm']
     username = session['username']
     user = User.query.filter_by(username=username).first()
-    print("#############" + str(user))
     user_id = user.id 
     #funds_to_run = Fund.query.filter_by(holder_id=user_id).all()
     
@@ -176,17 +167,44 @@ def go_or_no():
         
         #tests if request with that fundname works before proceeding
         #send_quote(fundname, num_shares, phone_num)
+        
         try:
             send_quote(fundname, num_shares, phone_num)
             pass
         except Exception: #more specific ? doesn't like decimal.InvalidOperation
             # time.sleep(1)
             # send_quote(fundname, num_shares, phone_num)
+            
             flash("Not a currently traded fund, check spelling, or try again later.", "negative")
             remove_by_fundname(fundname)
             return render_template('edit.html', username=username)
 
+        # new_thread = threading.Thread(name=fundname, target=schedule_quote, args=[fundname, num_shares, phone_num, frequency])
+        # print("Thread NAME:    " + new_thread.getName())
+        # new_thread.setName(fundname)
+        # new_thread.start()
+        # print("new thread is alive?: " + str(new_thread.is_alive()))
+        
+        #new_thread._reset_internal_locks(False)
+        #new_thread._stop()
+        #new_thread._delete()
+        # print("new thread is STILL alive?: " + str(new_thread.is_alive()))
+        # print("new_thread is stopped?:    " + str(new_thread._is_stopped()))   
+    
+        
+        new_thread = Threader(name=fundname, target=schedule_quote, args=[fundname, num_shares, phone_num, frequency])
+        new_thread.setName(fundname)
+        new_thread.start()
+        print("new thread is alive?: " + str(new_thread.is_alive()))
+        new_thread.stop()
+        print("NAME:  " + new_thread.getName())
+        print("Is new thread still alive>>  " + str(new_thread.is_alive()))
+        return render_template('/confo.html', fund=fundname)
 
+    else:
+        fundname = request.form['fundname']
+        return remove_by_fundname(fundname)
+"""
         #Like threading but with multiprocessing
         proc = Process(name=fundname, target=schedule_quote, args=[fundname, num_shares, phone_num, frequency])
         proc.start()
@@ -204,153 +222,8 @@ def go_or_no():
         #fund_to_run = Fund(fund_name=fundname, num_shares=num_shares, freq=frequency, phone_num=phone_num, holder_id=user_id, proc_num=p_num)
         db.session.add(fund_to_run)
         db.session.commit()
-        
-
         #proc.start()
-
-        return render_template('/confo.html', fund=fundname)
-    else:
-        fundname = request.form['fundname']
-        return remove_by_fundname(fundname)
-       
-def getQuote(fundname):
-    
-    """retrieves the last price for fund"""
-    try:
-        #below for yahoofinance api
-        """
-        fund_info = Share(fundname)
-        return(fund_info.get_price())
-       """
-        data = []
-        url = "https://finance.yahoo.com/quote/" + fundname + "/history/"
-        rows = bs(urllib.request.urlopen(url).read()).findAll('table')[0].tbody.findAll('tr')
-
-        for each_row in rows:
-            divs = each_row.findAll('td')
-            if divs[1].span.text  != 'Dividend': #Ignore this row in the table
-                #Only interested in 'Close' price; For other values, play with divs[1 - 5]
-                data.append(float(divs[4].span.text.replace(',','')))
-
-        return data[0]
-
-
-
-    #TODO following used for google-finance api
-        # info = json.dumps(getQuotes(fundname))
-        # data = json.loads(info)
-        # data_dict = {k: v for d in data for k, v in d.items()}
-        # return(data_dict['LastTradePrice'])
-
-
-    except YQLResponseMalformedError:
-        # attempt to retry function a second later due to yahoo bug, not sure if sound,
-        print("yahoo error, yql")
-        sleep(1)
-        return getQuote(fundname) # infinite loop! limit number with conditional
-
-    except urllib.error.HTTPError:
-        # attempt to retry function a second later due to yahoo bug, not sure if sound,
-        print("yahoo error, urlib")
-        sleep(1)
-        return getQuote(fundname) # if api dead infinite loop! limit number with conditional + send warning to user?
-    
-def current_value(fundname, num_shares): 
-    
-    quote = getQuote(fundname)
-    price = Money(quote, currency='USD')
-    value = num_shares * price
-    #msg = "Today you hold " + str(value) + " of {}.".format(fundname)
-    return value
-
-def send_quote(fundname, num_shares, phone_num):# ,time_of_day)
-    value = current_value(fundname, num_shares)
-    # TODO maybe put target conditionals here, if int(value) = fundname.target_value: msg else: pass (?)
-    msg = "Today you hold " + str(value) + " of {}.".format(fundname)
-    
-    """ add a target paramater to send_quote target, then convert to money for comparison?"""
-    # if fundname == "VGPMX" and value >= Money(4000, currency='USD'): #compare value to money instance of set value
-    #     return(fund_info.get_price)
-    # elif fundname == "VTSMX" and value >= Money(10000, currency='USD'):
-    #     return(fund_info.get_price)
-    # else:
-    #     pass
-    """
-    #TODO make sure to blank out below tokens and code before git push !!!!
-    """
-    
-    # account_sid = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-    # auth_token = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-    
- 
-    client = Client(account_sid, auth_token)
-    
-    message = client.messages.create(
-        to=str(phone_num),
-        #from_="XXXXXXXXXXXX",
-    
-       
-
-        body=msg
-    )
-    return print(message.sid)
-
-def schedule_quote(fundname, num_shares, phone_num, frequency, keep_going=True):#all this should be in fund class (name, frequency, time, num_shares, contact):
-    #TODO consider using datetime.timedelta or chron
-    #TODO introduce fund as Thread object
-    # list_funds = Fund.query.select_all().holder_id=User.id 
-    # for fund in list_funds:
-    #     threading.Thread(target=schedel_quote(fund)
-    """TODO get string fundname to Fund object so schedule_quote(fund)
-    num_shares = fundname.num_shares
-    phone_num = fundname.phone_num
-    frequency = fundname.freq"""
-
-    if frequency == "day":
-        schedule.every().day.at("17:40").do(send_quote, fundname, num_shares, phone_num)
-        while True:
-            schedule.run_pending()
-            print("++++++++++++++GOING+++++++++++++")
-            sleep(60)#TODO timestamp when app run started to see if 24 hours to check?
-    elif frequency == "week":
-        """
-         schedule.every().week.do(send_quote, fundname, num_shares, phone_num
-         while datetime.datetime.now() < scheduled_time:
-             schedule.run_pending()
-             time.sleep(1)
-         or 
-        go by day of week"""
-        #TODO ask user for day of week
-        schedule.every().friday.at("17:45").do(send_quote, fundname, num_shares, phone_num)
-        while True:
-            schedule.run_pending()
-            sleep(59) #59 or a minus 1 increment may produce two alerts
-            #time.sleep(86400)#secs in day
-    elif frequency == "month":
-        schedule.every(4).weeks.at("17:52").do(send_quote, fundname, num_shares, phone_num) #leapyear?
-        while True:
-            schedule.run_pending()
-            sleep(604800)#secs in week
-    elif frequency == "quarter":
-        schedule.every(13).weeks.do(send_quote, fundname, num_shares, phone_num)
-        while True:
-            schedule.run_pending()
-            sleep(2629800)#secs in month
-    elif frequency == "minutes":
-        #for testing purposes only
-        schedule.every(1).minutes.do(send_quote, fundname, num_shares, phone_num)
-        while keep_going:
-            schedule.run_pending()
-            print("++++++++++++++GOING+++++++++++++")
-            sleep(10)
-    elif frequency == "never":
-        print("=============stop==============")
-        #schedule.cancel(send_quote) no cancel function
-    # """using datetime
-    # next_check = datetime.datetime(2017, 9, 1, 17, 0, 0) check again at 5pm Sep. 1 2017
-    # while datetime.datetime.now() < next_check:
-    #     time.sleep(1)  check condition once per second"""
-     
+        """ 
 
 @app.route('/login',methods=['GET', 'POST'])
 def login():
@@ -421,7 +294,8 @@ def get_delete():
     
 @app.route('/deleted/<fundname>')
 def remove_by_fundname(fundname):
-    fund_to_stop = Fund.query.filter_by(fund_name=fundname).first()
+    #fund_to_stop = Fund.query.filter_by(fund_name=fundname).first()
+    """
    #TODO find whih proc to stop
     #proc = Process.name(fundname)
     print(proc)
@@ -440,6 +314,14 @@ def remove_by_fundname(fundname):
     proc.terminate()
     Fund.query.filter_by(fund_name=fundname).delete()
     db.session.commit()
+    """
+    #if threading.currentThread().getName() == fundname:
+    #    threading.currentThread()._stop
+    thread_to_quit = threading.currentThread().getName()
+    print("*************8" + thread_to_quit)
+    Fund.query.filter_by(fund_name=fundname).delete()
+    db.session.commit()
+
     return render_template('deleted.html', fund=fundname)
     
         

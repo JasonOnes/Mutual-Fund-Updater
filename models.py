@@ -26,7 +26,7 @@ class Fund(db.Model):
     e_mail = db.Column(db.String(50))
     #TODO change proc_num to proc object?
     #proc = db.Column(db.Process)
-    proc_num = db.Column(db.Float)
+    #proc_num = db.Column(db.Float)
     "TODO add frequency of updates to Fund class"
     holder_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     
@@ -44,6 +44,6 @@ class Fund(db.Model):
         self.phone_num = phone_num
         self.holder_id = holder_id
         
-        self.proc_num = proc_num
+       #self.proc_num = proc_num
 
         
