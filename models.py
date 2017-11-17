@@ -1,6 +1,8 @@
 from app import db
 from hashutils import make_pw_hash
 from sqlalchemy.orm import validates
+import multiprocessing
+from fundstuff import schedule_quote
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -46,4 +48,15 @@ class Fund(db.Model):
         
        #self.proc_num = proc_num
 
-        
+class ProcJob(multiprocessing.Process, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    fund_to_check_name = db.Column(db.String(5), db.ForeignKey('fund.fund_name'))
+    pid = db.Column(db.Integer)
+
+
+    def __init__(self, name, target, args, pid):
+        super(ProcJob, self).__init__(name=None,target=None, args=[], pid=None)
+        self.fund_to_check_name = name
+        self.target = schedule_quote
+        self.args = args
+        self.pid = pid

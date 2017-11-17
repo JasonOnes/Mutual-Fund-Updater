@@ -6,7 +6,7 @@ from twilio.rest import Client
 import schedule #TODO look into APScheduler
 from bs4 import BeautifulSoup as bs 
 from time import sleep 
-
+from threading import Thread
 
 
 def getQuote(fundname):
@@ -78,12 +78,13 @@ def send_quote(fundname, num_shares, phone_num):# ,time_of_day)
     # account_sid = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
     # auth_token = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
     
+
     client = Client(account_sid, auth_token)
     
     message = client.messages.create(
         to=str(phone_num),
         #from_="XXXXXXXXXXXX",
-    
+       
         body=msg
     )
     # if go:
@@ -92,84 +93,102 @@ def send_quote(fundname, num_shares, phone_num):# ,time_of_day)
     #     print("NO go!!!!!")
     #     pass
 
-def check_go(some_thread):
-    return some_thread.go
+# def check_go(some_thread):
+#     return some_thread.go
 
-def schedule_quote(some_thread):
-    fundname = some_thread.args[0]
-    num_shares = some_thread.args[1]
-    phone_num = some_thread.args[2]
-    if some_thread.args[3] == "minutes":
-         while some_thread.go:
-            schedule.every(1).minutes.do(send_quote, fundname, num_shares, phone_num)
-            if not check_go(some_thread):
-                print("done")
-                schedule.cancel()
-            else:
-                #schedule.run_pending()
-                schedule.Job(5)
-                print(str(schedule.Job))
-                print("++++++++++++++GOING+++++++++++++")
-                sleep(10)
-                return
+# def schedule_quote(some_thread):
+#     fundname = some_thread.args[0]
+#     num_shares = some_thread.args[1]
+#     phone_num = some_thread.args[2]
+#     if some_thread.args[3] == "minutes":
+    
+        # while getattr(some_thread, "go", True):
+        #     send_quote(fundname, num_shares, phone_num)
+        #     print("wait for it ..")
+        #     sleep(5)
+        #     check_go(some_thread)
+    
+        # schedule.every(1).minutes.do(send_quote, fundname, num_shares, phone_num)
+        # if not check_go(some_thread):
+        #     print("done")
+        #     schedule.cancel()
+        # else:
+        #     #schedule.run_pending()
+        #     schedule.Job(5)
+        #     print(str(schedule.Job))
+        #     print("++++++++++++++GOING+++++++++++++")
+        #     sleep(10)
+        #     return
 
+def event_check(some_thread):
+    # returns True if _stopper is set
+    return some_thread.stopped()
 
-# def schedule_quote(fundname, num_shares, phone_num, frequency, go):#all this should be in fund class (name, frequency, time, num_shares, contact):
-#     #TODO consider using datetime.timedelta or chron
-#     #TODO introduce fund as Thread object
-#     # list_funds = Fund.query.select_all().holder_id=User.id 
-#     # for fund in list_funds:
-#     #     threading.Thread(target=schedel_quote(fund)
-#     """TODO get string fundname to Fund object so schedule_quote(fund)
-#     num_shares = fundname.num_shares
-#     phone_num = fundname.phone_num
-#     frequency = fundname.freq"""
+def schedule_quote(fundname, num_shares, phone_num, frequency, go=True):#all this should be in fund class (name, frequency, time, num_shares, contact):
+    #TODO consider using datetime.timedelta or chron
+    #TODO introduce fund as Thread object
+    # list_funds = Fund.query.select_all().holder_id=User.id 
+    # for fund in list_funds:
+    #     threading.Thread(target=schedel_quote(fund)
+    """TODO get string fundname to Fund object so schedule_quote(fund)
+    num_shares = fundname.num_shares
+    phone_num = fundname.phone_num
+    frequency = fundname.freq"""
 
-#     if frequency == "day":
-#         schedule.every().day.at("17:40").do(send_quote, fundname, num_shares, phone_num)
-#         while True:
-#             schedule.run_pending()
-#             print("++++++++++++++GOING+++++++++++++")
-#             sleep(60)#TODO timestamp when app run started to see if 24 hours to check?
-#     elif frequency == "week":
-#         """
-#          schedule.every().week.do(send_quote, fundname, num_shares, phone_num
-#          while datetime.datetime.now() < scheduled_time:
-#              schedule.run_pending()
-#              time.sleep(1)
-#          or 
-#         go by day of week"""
-#         #TODO ask user for day of week
-#         schedule.every().friday.at("17:45").do(send_quote, fundname, num_shares, phone_num)
-#         while True:
-#             schedule.run_pending()
-#             sleep(59) #59 or a minus 1 increment may produce two alerts
-#             #time.sleep(86400)#secs in day
-#     elif frequency == "month":
-#         schedule.every(4).weeks.at("17:52").do(send_quote, fundname, num_shares, phone_num) #leapyear?
-#         while True:
-#             schedule.run_pending()
-#             sleep(604800)#secs in week
-#     elif frequency == "quarter":
-#         schedule.every(13).weeks.do(send_quote, fundname, num_shares, phone_num)
-#         while True:
-#             schedule.run_pending()
-#             sleep(2629800)#secs in month
-#     elif frequency == "minutes":
-#         #for testing purposes only
+    if frequency == "day":
+        schedule.every().day.at("17:40").do(send_quote, fundname, num_shares, phone_num)
+        while True:
+            schedule.run_pending()
+            print("++++++++++++++GOING+++++++++++++")
+            sleep(60)#TODO timestamp when app run started to see if 24 hours to check?
+    elif frequency == "week":
+        """
+         schedule.every().week.do(send_quote, fundname, num_shares, phone_num
+         while datetime.datetime.now() < scheduled_time:
+             schedule.run_pending()
+             time.sleep(1)
+         or 
+        go by day of week"""
+        #TODO ask user for day of week
+        schedule.every().friday.at("17:45").do(send_quote, fundname, num_shares, phone_num)
+        while True:
+            schedule.run_pending()
+            sleep(59) #59 or a minus 1 increment may produce two alerts
+            #time.sleep(86400)#secs in day
+    elif frequency == "month":
+        schedule.every(4).weeks.at("17:52").do(send_quote, fundname, num_shares, phone_num) #leapyear?
+        while True:
+            schedule.run_pending()
+            sleep(604800)#secs in week
+    elif frequency == "quarter":
+        schedule.every(13).weeks.do(send_quote, fundname, num_shares, phone_num)
+        while True:
+            schedule.run_pending()
+            sleep(2629800)#secs in month
+    elif frequency == "minutes":
+        #for testing purposes only
+        schedule.every(1).minutes.do(send_quote, fundname, num_shares, phone_num)
+        while True:
+            schedule.run_pending()
+            print("wait for it. . . ")
+            sleep(10)
+
+        # while go:
+        #     schedule.every(1).minutes.do(send_quote, fundname, num_shares, phone_num)
+        #     some_thread = Thread.current_thread()
+        #     if not event_check(some_thread):
+        #         schedule.run_pending()
+        #         print("++++++++++++++GOING+++++++++++++")
+        #         sleep(10)
+        #     else:
+        #         break
+
+    elif frequency == "never":
+        #TODO maybe make change frequency arg at Thread level??
+        print("=============stop==============")
+        #schedule.cancel(send_quote) no cancel function
+    # """using datetime
+    # next_check = datetime.datetime(2017, 9, 1, 17, 0, 0) check again at 5pm Sep. 1 2017
+    # while datetime.datetime.now() < next_check:
+    #     time.sleep(1)  check condition once per second"""
        
-#         while go:
-#             schedule.every(1).minutes.do(send_quote, fundname, num_shares, phone_num)
-#             if go:
-#                 schedule.run_pending()
-#                 print("++++++++++++++GOING+++++++++++++")
-#                 sleep(10)
-#     elif frequency == "never":
-#         #TODO maybe make change frequency arg at Thread level??
-#         print("=============stop==============")
-#         #schedule.cancel(send_quote) no cancel function
-#     # """using datetime
-#     # next_check = datetime.datetime(2017, 9, 1, 17, 0, 0) check again at 5pm Sep. 1 2017
-#     # while datetime.datetime.now() < next_check:
-#     #     time.sleep(1)  check condition once per second"""
-     

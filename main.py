@@ -5,8 +5,8 @@ import re
 import requests
 
 # import os 
-# from multiprocessing import Process
-# import psutil
+from multiprocessing import Process
+import psutil
 # from subprocess import Popen
 
 import threading
@@ -17,6 +17,8 @@ from app import app, db
 from hashutils import check_pw_hash
 from threader import Threader
 from fundstuff import *
+
+
 
 @app.route('/')
 def _home():
@@ -190,40 +192,58 @@ def go_or_no():
         #new_thread._delete()
         # print("new thread is STILL alive?: " + str(new_thread.is_alive()))
         # print("new_thread is stopped?:    " + str(new_thread._is_stopped()))   
-    
-        
-        new_thread = Threader(name=fundname, target=schedule_quote, args=[fundname, num_shares, phone_num, frequency])
-        new_thread.setName(fundname)
-        new_thread.start()
-        print("new thread is alive?: " + str(new_thread.is_alive()))
-        new_thread.stop()
-        print("NAME:  " + new_thread.getName())
-        print("Is new thread still alive>>  " + str(new_thread.is_alive()))
-        return render_template('/confo.html', fund=fundname)
+        #new_thread = threading.Thread(name=fundname, target=schedule_quote, args=[fundname, num_shares, phone_num, frequency])
+        #new_thread = threading.Thread(group=None, target=schedule_quote, args=(fundname, num_shares, phone_num, frequency))
+       
 
-    else:
-        fundname = request.form['fundname']
-        return remove_by_fundname(fundname)
-"""
+
+        # new_thread = Threader(name=fundname, target=schedule_quote, args=[fundname, num_shares, phone_num, frequency])
+        # new_thread.schedule_quote(_stopper=threading.Event())
+        # new_thread.setName(fundname)
+        # print(str(new_thread.getName()))
+        # #new_thread.start()
+        # #new_thread.stop()
+        # print("new thread is alive?: " + str(new_thread.is_alive()))
+        # #new_thread.go = False
+        # #new_thread.join()
+        # print("NAME:  " + new_thread.getName())
+        # new_thread._stopper.set()
+        # new_thread.stop()
+        # print("Is new thread still alive>>  " + str(new_thread.is_alive()))
+       # return render_template('/confo.html', fund=fundname)
+
+    
+
         #Like threading but with multiprocessing
         proc = Process(name=fundname, target=schedule_quote, args=[fundname, num_shares, phone_num, frequency])
         proc.start()
-        #p = psutil.Process(proc.pid)
-        num = proc.pid
+        p = psutil.Process(proc.pid)
+        print("NAME:  " + proc.name)
+        number = proc.pid
+        print("Id:   " + str(number))
+        #proc.terminate()
+        sleep(120)
+        p.terminate()
+        #proc.terminate()
         
+        return render_template('/confo.html', fund=fundname)
         #print("^^^^^^^^^^^^^^" + p)
-        print("##################" + str(num))
-        print("Name:    " + proc.name)
-        print("PROC%%%%%%%%%%%%%%%%%%%%%%%%%%%" + str(proc))
-        p_num = str(proc)[17]
-        fund_to_run = Fund.query.filter_by(holder_id=user.id).filter_by(fund_name=fundname).first()  
-        #fund_to_run = Fund.query.filter_by(holder_id=user_id).first()
-        fund_to_run.proc_num = num
-        #fund_to_run = Fund(fund_name=fundname, num_shares=num_shares, freq=frequency, phone_num=phone_num, holder_id=user_id, proc_num=p_num)
-        db.session.add(fund_to_run)
-        db.session.commit()
+        # print("##################" + str(num))
+        # print("Name:    " + proc.name)
+        # print("PROC%%%%%%%%%%%%%%%%%%%%%%%%%%%" + str(proc))
+        # p_num = str(proc)[17]
+        # fund_to_run = Fund.query.filter_by(holder_id=user.id).filter_by(fund_name=fundname).first()  
+        # #fund_to_run = Fund.query.filter_by(holder_id=user_id).first()
+        # fund_to_run.proc_num = num
+        # #fund_to_run = Fund(fund_name=fundname, num_shares=num_shares, freq=frequency, phone_num=phone_num, holder_id=user_id, proc_num=p_num)
+        # db.session.add(fund_to_run)
+        # db.session.commit()
         #proc.start()
-        """ 
+    else:
+        fundname = request.form['fundname']
+        return remove_by_fundname(fundname)
+
+
 
 @app.route('/login',methods=['GET', 'POST'])
 def login():
