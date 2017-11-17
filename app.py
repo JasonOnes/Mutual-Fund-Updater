@@ -8,6 +8,9 @@ app = Flask(__name__)
 
  
 
+ 
+ 
+
 
 
 app.config['SQLALCHEMY_ECHO'] = True

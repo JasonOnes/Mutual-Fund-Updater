@@ -74,7 +74,8 @@ def send_quote(fundname, num_shares, phone_num):# ,time_of_day)
     """
     #TODO make sure to blank out below tokens and code before git push !!!!
     """
-    
+
+ 
     # account_sid = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
     # auth_token = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
     
@@ -167,6 +168,7 @@ def schedule_quote(fundname, num_shares, phone_num, frequency, go=True):#all thi
             sleep(2629800)#secs in month
     elif frequency == "minutes":
         #for testing purposes only
+        print("HELLO")
         schedule.every(1).minutes.do(send_quote, fundname, num_shares, phone_num)
         while True:
             schedule.run_pending()

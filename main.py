@@ -12,7 +12,7 @@ import psutil
 import threading
 #from concurrent import futures
 
-from models import User, Fund
+from models import User, Fund, Proc
 from app import app, db
 from hashutils import check_pw_hash
 from threader import Threader
@@ -214,16 +214,38 @@ def go_or_no():
 
     
 
+        fund = Fund.query.filter_by(fund_name=fundname).filter_by(holder_id=user.id).first()
+        fund_to_check = fund.id
+
         #Like threading but with multiprocessing
         proc = Process(name=fundname, target=schedule_quote, args=[fundname, num_shares, phone_num, frequency])
+        #proc = ProcJob(name=fundname, target=schedule_quote, args=[fundname, num_shares, phone_num, frequency], 
+        #               p_id=None, fund_to_check=fund_to_check)
+        
         proc.start()
+        # proc doesn't get a pid until run
         p = psutil.Process(proc.pid)
+        print("psutil.Process(proc.pid) = :  " +  str(p))
+        proc.p_id = proc.pid
+        print("proc.pid = "  +  str(proc.pid))
+        #adds proc to db once pid has been set 
+        #db.session.add(proc)
+        #db.session.commit()
+
         print("NAME:  " + proc.name)
-        number = proc.pid
-        print("Id:   " + str(number))
+        process_number = proc.pid
+        ref_number = proc.p_id
         #proc.terminate()
-        sleep(120)
-        p.terminate()
+       # sleep(30)
+        #p.terminate()
+        print("proc.pid=:   " + str(proc.pid))
+        new_thread = Proc(fundname, fund_to_check, p_id=proc.pid)
+        print("$$$$$$$$$$" + "p_id =====" + str(new_thread.p_id))
+        db.session.add(new_thread)
+        db.session.commit()
+        print("$$$$$$$$$$" + "p_id =====" + str(new_thread.p_id))
+        #putil_test_case = psutil.Process(proc.pid)
+        #putil_test_case.terminate()
         #proc.terminate()
         
         return render_template('/confo.html', fund=fundname)
@@ -314,7 +336,7 @@ def get_delete():
     
 @app.route('/deleted/<fundname>')
 def remove_by_fundname(fundname):
-    #fund_to_stop = Fund.query.filter_by(fund_name=fundname).first()
+    fund_to_stop = Fund.query.filter_by(fund_name=fundname).first()
     """
    #TODO find whih proc to stop
     #proc = Process.name(fundname)
@@ -337,8 +359,17 @@ def remove_by_fundname(fundname):
     """
     #if threading.currentThread().getName() == fundname:
     #    threading.currentThread()._stop
-    thread_to_quit = threading.currentThread().getName()
-    print("*************8" + thread_to_quit)
+    # thread_to_quit = threading.currentThread().getName()
+    # print("*************8" + thread_to_quit)
+    proc_to_stop = Proc.query.filter_by(fund_to_check=fund_to_stop.id).first()
+    print("proc_to_stop: " + str(proc_to_stop.id) +" name: " + proc_to_stop.fund_name)
+    print("p_id =  " + str(proc_to_stop.p_id))
+    # stops the sending quote process via the process id number
+    psutil.Process(proc_to_stop.p_id).terminate()
+    # once messages are stopped then safe to delete
+    #proc_to_stop.delete()
+
+    Proc.query.filter_by(fund_to_check=fund_to_stop.id).delete()
     Fund.query.filter_by(fund_name=fundname).delete()
     db.session.commit()
 
