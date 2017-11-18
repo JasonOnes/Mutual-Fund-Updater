@@ -74,10 +74,8 @@ def add_fund():
     fund_match = match.fullmatch(fund_name)
     funds_with_that_name = Fund.query.filter_by(fund_name=fund_name).count()
 
-
     phone_contact = (request.form['tel_contact'])#TODO validate phone number (test call? send with code for reply)
     phone_match = re.compile(r"\([2-9][0-8][0-9]\)[2-9][0-9]{2}-[0-9]{4}") # NOrth American Numbering Plan
-    
     phone_is_recognized = phone_match.fullmatch(phone_contact)
    
     if phone_is_recognized:
@@ -247,19 +245,12 @@ def get_delete():
         flash("You aren't logged in!", "negative")
         return redirect('/')
         
-    
-    """session.query(fund).filter(fundname = fundname).
-    delete(synchronize_session=False)#look up set to false efficient but makes change only after 
-    commit(?)"""
-    
 @app.route('/deleted/<fund_id>')
 def remove_by_fund_id(fund_id):
     # stops the sending of quotes and deletes process and fund from db
     fund_to_stop = Fund.query.filter_by(id=fund_id).first()  
     fundname = fund_to_stop.fund_name
-    print("*********FUNDID:  " + str(fund_to_stop.id))
     proc_to_stop = Proc.query.filter_by(fund_to_check=fund_to_stop.id).first()
-    print("&&&&&&&&&ProcID    " + str(proc_to_stop.id))
     # stops the sending quote process via the process id number
     try:
         psutil.Process(proc_to_stop.p_id).terminate()
@@ -273,7 +264,6 @@ def remove_by_fund_id(fund_id):
         pass
 
     # once messages are stopped then safe to delete
-    
     Proc.query.filter_by(fund_to_check=fund_to_stop.id).delete()
     Fund.query.filter_by(id=fund_id).delete()
    
@@ -298,32 +288,26 @@ def verify_cancel():
 def del_user(username):
     user = User.query.filter_by(username=username).first()
     funds = Fund.query.filter_by(holder_id=user.id).all()
+    #funds = Fund.query.all()
     for fund in funds:
-        # remove_fund(fund.fund_name)
-        fund_to_stop = Fund.query.filter_by(fund_name=fund.fund_name).first()   
+        fund_to_stop = Fund.query.filter_by(fund_name=fund.fund_name).filter_by(holder_id=user.id).first()   
         proc_to_stop = Proc.query.filter_by(fund_to_check=fund_to_stop.id).first()
-# stops the sending quote process via the process id number
         try:
             psutil.Process(proc_to_stop.p_id).terminate()
 #if going back and forth on browser screen list maybe cached but process gone
 # or if user decides they don't want the quote before process started
-        except AttributeError:#, psutil.NoSuchProcess:
+        except AttributeError:
             pass
         except psutil.NoSuchProcess:
             pass
-# once messages are stopped then safe to delete
+        except NoneType:
+            pass
         Proc.query.filter_by(fund_to_check=fund_to_stop.id).delete()
-        Fund.query.filter_by(fund_name=fund_to_stop.fund_name).delete()
+        Fund.query.filter_by(id=fund_to_stop.id).delete()
     db.session.commit()
-    pass
-            # _fund = Fund.query.filter_by(holder_id=user.id).first()
-            # _proc = Proc.query.filter_by(fund_to_check=_fund.id).first()
-            # _proc.termintate()
-            # Proc.query.filter_by(fund_to_check=_fund.id).delete()
-            # Fund.query.filter_by(holder_id=user.id).delete()
-           
+
     User.query.filter_by(username=username).delete()
-    
+    # remove user from session
     del session['username']
     db.session.commit()
     return render_template('cancel-confirmed.html', username=username)

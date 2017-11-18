@@ -112,3 +112,7 @@ twiltest.py
 
 #ignore the whole app.py?
 app.py
+
+#keep hash algo out
+hashutils.py
+

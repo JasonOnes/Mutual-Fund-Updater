@@ -45,6 +45,7 @@ class Fund(db.Model):
      
 
 class Proc(db.Model):
+    # mainly just used to store process id numbers
     id = db.Column(db.Integer, primary_key=True)
     fund_name = db.Column(db.String(5))
     fund_to_check = db.Column(db.Integer, db.ForeignKey('fund.id'))

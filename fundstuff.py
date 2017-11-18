@@ -83,10 +83,7 @@ def send_quote(fundname, num_shares, phone_num):
     
 def schedule_quote(fundname, num_shares, phone_num, frequency):#all this should be in fund class (name, frequency, time, num_shares, contact):
     #TODO consider using datetime.timedelta or chron
-    #TODO introduce fund as Thread object
-    # list_funds = Fund.query.select_all().holder_id=User.id 
-    # for fund in list_funds:
-    #     threading.Thread(target=schedel_quote(fund)
+
     """TODO get string fundname to Fund object so schedule_quote(fund)
     num_shares = fundname.num_shares
     phone_num = fundname.phone_num
@@ -136,21 +133,3 @@ def schedule_quote(fundname, num_shares, phone_num, frequency):#all this should 
     # while datetime.datetime.now() < next_check:
     #     time.sleep(1)  check condition once per second"""
 
-# def remove_fund(fund_to_stop, proc_to_stop):
-#     # fund_to_stop = Fund.query.filter_by(fund_name=fundname).first()   
-#     # proc_to_stop = Proc.query.filter_by(fund_to_check=fund_to_stop.id).first()
-#     # stops the sending quote process via the process id number
-#     try:
-#         psutil.Process(proc_to_stop.p_id).terminate()
-#     #if going back and forth on browser screen list maybe cached but process gone
-#     # or if user decides they don't want the quote before process started
-#     except AttributeError:#, psutil.NoSuchProcess:
-#         print("hmmm?")
-#         pass
-
-#     # once messages are stopped then safe to delete
-#     Proc.query.filter_by(fund_to_check=fund_to_stop.id).delete()
-#     Fund.query.filter_by(fund_name=fundname).delete()
-#     db.session.commit()
-#     pass
-       
