@@ -35,6 +35,9 @@ def add_user():
     if user_with_that_name > 0:
         flash("That name is already in use, come up with another", "negative")
         return render_template('sign-up-form.html')
+    elif len(psw) < 6 or len(psw) > 20:
+        flash("Passwords must be at least 6 chars long, 20 at most.", "negative")
+        return render_template('sign-up-form.html', username=name)
     elif psw != con_psw:
         flash("Passwords didn't match!!", "negative")
         return render_template('sign-up-form.html', username=name)
@@ -62,6 +65,7 @@ def edit():
        
 def add_fund():
     fund_name = request.form['fund'].upper()
+    #num_shares = request.form['num_shares']
     # check to see if form field filled if not default to 1
     if request.form['num_shares']:
         num_shares = float(request.form['num_shares'])
@@ -74,15 +78,20 @@ def add_fund():
     fund_match = match.fullmatch(fund_name)
     funds_with_that_name = Fund.query.filter_by(fund_name=fund_name).count()
 
-    phone_contact = (request.form['tel_contact'])#TODO validate phone number (test call? send with code for reply)
-    phone_match = re.compile(r"\([2-9][0-8][0-9]\)[2-9][0-9]{2}-[0-9]{4}") # NOrth American Numbering Plan
-    phone_is_recognized = phone_match.fullmatch(phone_contact)
-   
-    if phone_is_recognized:
-        pass
-    else:
-        flash("Not a valid American or Canadian phone number. Try again with (XXX)XXX-XXXX format.", "negative")
-        return render_template('edit.html', username=holder.username) 
+    phone_contact = (request.form['tel_contact'])
+    # phone will be further validated with test call once a fund is added
+    if phone_contact != "":
+        phone_match = re.compile(r"\([2-9][0-8][0-9]\)[2-9][0-9]{2}-[0-9]{4}")
+        # this is the North American Numbering Plan
+        phone_is_recognized = phone_match.fullmatch(phone_contact)
+        if phone_is_recognized:
+            pass
+        else:
+            flash("Not a valid American or Canadian phone number. Try again with (XXX)XXX-XXXX format.", "negative")
+            return render_template('edit.html', username=holder.username, fund=fund_name, num_shares=num_shares)
+    else: 
+        flash("Must provide number", "negative")
+        return render_template('edit.html', username=holder.username, fund=fund_name, num_shares=num_shares)
     #TODO return template with name, fund, and num_shares
 
     funds_with_that_name = Fund.query.filter_by(fund_name=fund_name).filter_by(holder_id=holder.id).count()

@@ -1,8 +1,8 @@
+#from sqlalchemy.orm import validates
+
 from app import db
 from hashutils import make_pw_hash
-from sqlalchemy.orm import validates
-import multiprocessing
-from fundstuff import schedule_quote
+
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
