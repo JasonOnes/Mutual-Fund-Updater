@@ -3,19 +3,12 @@ from sqlalchemy import update
 import json
 import re
 import requests
-
-# import os 
 from multiprocessing import Process
 import psutil
-# from subprocess import Popen
-
-import threading
-#from concurrent import futures
 
 from models import User, Fund, Proc
 from app import app, db
 from hashutils import check_pw_hash
-from threader import Threader
 from fundstuff import *
 
 
@@ -94,8 +87,6 @@ def add_fund():
         return render_template('edit.html', username=holder.username) 
     #TODO return template with name, fund, and num_shares
 
-    #TODO think about how to verify if it is actually a traded fund
-
     funds_with_that_name = Fund.query.filter_by(fund_name=fund_name).filter_by(holder_id=holder.id).count()
     
     if fund_match and funds_with_that_name == 0:
@@ -153,119 +144,46 @@ def update_num_shares(fund_name, user_id, new_shares):
 
 @app.route("/confo", methods=['POST'])
 def go_or_no():
-    
+    # confirms whether user wants to receive messages with data provided
     answer = request.form['confirm']
     username = session['username']
     user = User.query.filter_by(username=username).first()
     user_id = user.id 
-    #funds_to_run = Fund.query.filter_by(holder_id=user_id).all()
     
     if answer == 'yes':
-    
         fundname = request.form['fundname']
         phone_num = request.form['phone']
         num_shares = request.form['shares']
         frequency = request.form['freq']
-        
-        #tests if request with that fundname works before proceeding
-        #send_quote(fundname, num_shares, phone_num)
-        
-        try:
-            send_quote(fundname, num_shares, phone_num)
-            pass
-        except Exception: #more specific ? doesn't like decimal.InvalidOperation
-            # time.sleep(1)
-            # send_quote(fundname, num_shares, phone_num)
-            
-            flash("Not a currently traded fund, check spelling, or try again later.", "negative")
-            remove_by_fundname(fundname)
-            return render_template('edit.html', username=username)
-
-        # new_thread = threading.Thread(name=fundname, target=schedule_quote, args=[fundname, num_shares, phone_num, frequency])
-        # print("Thread NAME:    " + new_thread.getName())
-        # new_thread.setName(fundname)
-        # new_thread.start()
-        # print("new thread is alive?: " + str(new_thread.is_alive()))
-        
-        #new_thread._reset_internal_locks(False)
-        #new_thread._stop()
-        #new_thread._delete()
-        # print("new thread is STILL alive?: " + str(new_thread.is_alive()))
-        # print("new_thread is stopped?:    " + str(new_thread._is_stopped()))   
-        #new_thread = threading.Thread(name=fundname, target=schedule_quote, args=[fundname, num_shares, phone_num, frequency])
-        #new_thread = threading.Thread(group=None, target=schedule_quote, args=(fundname, num_shares, phone_num, frequency))
-       
-
-
-        # new_thread = Threader(name=fundname, target=schedule_quote, args=[fundname, num_shares, phone_num, frequency])
-        # new_thread.schedule_quote(_stopper=threading.Event())
-        # new_thread.setName(fundname)
-        # print(str(new_thread.getName()))
-        # #new_thread.start()
-        # #new_thread.stop()
-        # print("new thread is alive?: " + str(new_thread.is_alive()))
-        # #new_thread.go = False
-        # #new_thread.join()
-        # print("NAME:  " + new_thread.getName())
-        # new_thread._stopper.set()
-        # new_thread.stop()
-        # print("Is new thread still alive>>  " + str(new_thread.is_alive()))
-       # return render_template('/confo.html', fund=fundname)
-
     
 
         fund = Fund.query.filter_by(fund_name=fundname).filter_by(holder_id=user.id).first()
         fund_to_check = fund.id
+        #tests if request with that fundname works before proceeding
+        try:
+            send_quote(fundname, num_shares, phone_num)
+            pass  
+        #except Exception: #more specific ? doesn't like decimal.InvalidOperation
+        except IndexError: # arises when api can't find fund in list (bogus)
+            flash("Not a currently traded fund, check spelling, or try again later.", "negative")
+            remove_by_fund_id(fund.id)
+            return render_template('edit.html', username=username)
 
         #Like threading but with multiprocessing
         proc = Process(name=fundname, target=schedule_quote, args=[fundname, num_shares, phone_num, frequency])
-        #proc = ProcJob(name=fundname, target=schedule_quote, args=[fundname, num_shares, phone_num, frequency], 
-        #               p_id=None, fund_to_check=fund_to_check)
-        
         proc.start()
         # proc doesn't get a pid until run
         p = psutil.Process(proc.pid)
-        print("psutil.Process(proc.pid) = :  " +  str(p))
-        proc.p_id = proc.pid
-        print("proc.pid = "  +  str(proc.pid))
-        #adds proc to db once pid has been set 
-        #db.session.add(proc)
-        #db.session.commit()
-
-        print("NAME:  " + proc.name)
-        process_number = proc.pid
-        ref_number = proc.p_id
-        #proc.terminate()
-       # sleep(30)
-        #p.terminate()
-        print("proc.pid=:   " + str(proc.pid))
+        # store the pid number in the Proc table as reference for updating/delete later
+        proc.p_id = proc.pid    
+        # term thread may be misleading but it's how I think about these processes only used here 
         new_thread = Proc(fundname, fund_to_check, p_id=proc.pid)
-        print("$$$$$$$$$$" + "p_id =====" + str(new_thread.p_id))
         db.session.add(new_thread)
-        db.session.commit()
-        print("$$$$$$$$$$" + "p_id =====" + str(new_thread.p_id))
-        #putil_test_case = psutil.Process(proc.pid)
-        #putil_test_case.terminate()
-        #proc.terminate()
-        
+        db.session.commit()    
         return render_template('/confo.html', fund=fundname)
-        #print("^^^^^^^^^^^^^^" + p)
-        # print("##################" + str(num))
-        # print("Name:    " + proc.name)
-        # print("PROC%%%%%%%%%%%%%%%%%%%%%%%%%%%" + str(proc))
-        # p_num = str(proc)[17]
-        # fund_to_run = Fund.query.filter_by(holder_id=user.id).filter_by(fund_name=fundname).first()  
-        # #fund_to_run = Fund.query.filter_by(holder_id=user_id).first()
-        # fund_to_run.proc_num = num
-        # #fund_to_run = Fund(fund_name=fundname, num_shares=num_shares, freq=frequency, phone_num=phone_num, holder_id=user_id, proc_num=p_num)
-        # db.session.add(fund_to_run)
-        # db.session.commit()
-        #proc.start()
     else:
-        fundname = request.form['fundname']
-        return remove_by_fundname(fundname)
-
-
+        # user doesn't agree to inputs or changes mind fund removed 
+        return remove_by_fund_id(fund.id)
 
 @app.route('/login',methods=['GET', 'POST'])
 def login():
@@ -334,47 +252,33 @@ def get_delete():
     delete(synchronize_session=False)#look up set to false efficient but makes change only after 
     commit(?)"""
     
-@app.route('/deleted/<fundname>')
-def remove_by_fundname(fundname):
-    fund_to_stop = Fund.query.filter_by(fund_name=fundname).first()
-    """
-   #TODO find whih proc to stop
-    #proc = Process.name(fundname)
-    print(proc)
-    print("Alive?   " + proc.isalive())
-    proc.terminate()
-    print("Alive?   " + proc.isalive())
-    proc.join()
-    print("Alive?   " + proc.isalive())
-    
-    num = os.getpid()
-    print("::::::::::::::::::::" + str(num))
-    #pid = fund_to_stop.proc_num
-    #pid.terminate
-    proc = psutil.Process(pid)
-    print(";;;;;;;;;;;;;;;;;;;;" + str(proc))
-    proc.terminate()
-    Fund.query.filter_by(fund_name=fundname).delete()
-    db.session.commit()
-    """
-    #if threading.currentThread().getName() == fundname:
-    #    threading.currentThread()._stop
-    # thread_to_quit = threading.currentThread().getName()
-    # print("*************8" + thread_to_quit)
+@app.route('/deleted/<fund_id>')
+def remove_by_fund_id(fund_id):
+    # stops the sending of quotes and deletes process and fund from db
+    fund_to_stop = Fund.query.filter_by(id=fund_id).first()  
+    fundname = fund_to_stop.fund_name
+    print("*********FUNDID:  " + str(fund_to_stop.id))
     proc_to_stop = Proc.query.filter_by(fund_to_check=fund_to_stop.id).first()
-    print("proc_to_stop: " + str(proc_to_stop.id) +" name: " + proc_to_stop.fund_name)
-    print("p_id =  " + str(proc_to_stop.p_id))
+    print("&&&&&&&&&ProcID    " + str(proc_to_stop.id))
     # stops the sending quote process via the process id number
-    psutil.Process(proc_to_stop.p_id).terminate()
+    try:
+        psutil.Process(proc_to_stop.p_id).terminate()
+    #if going back and forth on browser screen list maybe cached but process gone
+    # or if user decides they don't want the quote before process started
+    except AttributeError:#, psutil.NoSuchProcess:
+        print("hmmm?")
+        pass
+    except psutil.NoSuchProcess:
+        print("ahhh:")
+        pass
+
     # once messages are stopped then safe to delete
-    #proc_to_stop.delete()
-
-    Proc.query.filter_by(fund_to_check=fund_to_stop.id).delete()
-    Fund.query.filter_by(fund_name=fundname).delete()
-    db.session.commit()
-
-    return render_template('deleted.html', fund=fundname)
     
+    Proc.query.filter_by(fund_to_check=fund_to_stop.id).delete()
+    Fund.query.filter_by(id=fund_id).delete()
+   
+    db.session.commit()
+    return render_template('deleted.html', fund=fundname)
         
 @app.route('/cancel', methods=['GET', 'POST']) 
 def verify_cancel():
@@ -393,17 +297,31 @@ def verify_cancel():
 @app.route('/cancel/<username>', methods=['GET', 'POST'])
 def del_user(username):
     user = User.query.filter_by(username=username).first()
-    funds = Fund.query.all()
+    funds = Fund.query.filter_by(holder_id=user.id).all()
     for fund in funds:
-        if fund.holder_id == user.id:
-            """TODO stop sending updates,
-            unschedule_updates function perhaps?"""
-            #fund.unschedule_updates()
-            fund.freq = "never"
-            #remove_by_fundname(fund.fund_name)
-            schedule_quote(fund.fund_name, fund.num_shares, fund.phone_num, frequency="never", keep_going=False)
-            Fund.query.filter_by(holder_id=user.id).delete()
-
+        # remove_fund(fund.fund_name)
+        fund_to_stop = Fund.query.filter_by(fund_name=fund.fund_name).first()   
+        proc_to_stop = Proc.query.filter_by(fund_to_check=fund_to_stop.id).first()
+# stops the sending quote process via the process id number
+        try:
+            psutil.Process(proc_to_stop.p_id).terminate()
+#if going back and forth on browser screen list maybe cached but process gone
+# or if user decides they don't want the quote before process started
+        except AttributeError:#, psutil.NoSuchProcess:
+            pass
+        except psutil.NoSuchProcess:
+            pass
+# once messages are stopped then safe to delete
+        Proc.query.filter_by(fund_to_check=fund_to_stop.id).delete()
+        Fund.query.filter_by(fund_name=fund_to_stop.fund_name).delete()
+    db.session.commit()
+    pass
+            # _fund = Fund.query.filter_by(holder_id=user.id).first()
+            # _proc = Proc.query.filter_by(fund_to_check=_fund.id).first()
+            # _proc.termintate()
+            # Proc.query.filter_by(fund_to_check=_fund.id).delete()
+            # Fund.query.filter_by(holder_id=user.id).delete()
+           
     User.query.filter_by(username=username).delete()
     
     del session['username']

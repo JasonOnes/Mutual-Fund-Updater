@@ -7,17 +7,21 @@ import schedule #TODO look into APScheduler
 from bs4 import BeautifulSoup as bs 
 from time import sleep 
 from threading import Thread
+import psutil
 
+
+#from main import Fund, Proc, db
+from tokens import x, y, phone
 
 def getQuote(fundname):
-    
-    """retrieves the last price for fund"""
+    # retrieves the last price for fund
     try:
-        #below for yahoofinance api
+        # below for yahoofinance api
         """
         fund_info = Share(fundname)
         return(fund_info.get_price())
        """
+       # below uses yahoo finance history as work around
         data = []
         url = "https://finance.yahoo.com/quote/" + fundname + "/history/"
         rows = bs(urllib.request.urlopen(url).read()).findAll('table')[0].tbody.findAll('tr')
@@ -27,10 +31,7 @@ def getQuote(fundname):
             if divs[1].span.text  != 'Dividend': #Ignore this row in the table
                 #Only interested in 'Close' price; For other values, play with divs[1 - 5]
                 data.append(float(divs[4].span.text.replace(',','')))
-
         return data[0]
-
-
 
     #TODO following used for google-finance api
         # info = json.dumps(getQuotes(fundname))
@@ -52,80 +53,35 @@ def getQuote(fundname):
         return getQuote(fundname) # if api dead infinite loop! limit number with conditional + send warning to user?
     
 def current_value(fundname, num_shares): 
-    
+    # returns user's money position of given fund
     quote = getQuote(fundname)
     price = Money(quote, currency='USD')
     value = num_shares * price
-    #msg = "Today you hold " + str(value) + " of {}.".format(fundname)
     return value
 
-def send_quote(fundname, num_shares, phone_num):# ,time_of_day)
-    value = current_value(fundname, num_shares)
+def send_quote(fundname, num_shares, phone_num):
     # TODO maybe put target conditionals here, if int(value) = fundname.target_value: msg else: pass (?)
+    # add a target paramater to send_quote target, then convert to money for comparison?"""
+    """if fundname == "VGPMX" and value >= Money(4000, currency='USD'): #compare value to money instance of set value
+        return(fund_info.get_price)
+    elif fundname == "VTSMX" and value >= Money(10000, currency='USD'):
+        return(fund_info.get_price)
+    else:
+        pass
+"""
+    value = current_value(fundname, num_shares)
     msg = "Today you hold " + str(value) + " of {}.".format(fundname)
-    
-    """ add a target paramater to send_quote target, then convert to money for comparison?"""
-    # if fundname == "VGPMX" and value >= Money(4000, currency='USD'): #compare value to money instance of set value
-    #     return(fund_info.get_price)
-    # elif fundname == "VTSMX" and value >= Money(10000, currency='USD'):
-    #     return(fund_info.get_price)
-    # else:
-    #     pass
-    """
-    #TODO make sure to blank out below tokens and code before git push !!!!
-    """
-
- 
-    # account_sid = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-    # auth_token = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-    
-
-    client = Client(account_sid, auth_token)
-    
+    account_sid = x
+    auth_token = y
+    client = Client(account_sid, auth_token) 
     message = client.messages.create(
         to=str(phone_num),
-        #from_="XXXXXXXXXXXX",
-       
+        from_= phone,
         body=msg
-    )
-    # if go:
+    ) 
     return print(message.sid)
-    # else:
-    #     print("NO go!!!!!")
-    #     pass
-
-# def check_go(some_thread):
-#     return some_thread.go
-
-# def schedule_quote(some_thread):
-#     fundname = some_thread.args[0]
-#     num_shares = some_thread.args[1]
-#     phone_num = some_thread.args[2]
-#     if some_thread.args[3] == "minutes":
     
-        # while getattr(some_thread, "go", True):
-        #     send_quote(fundname, num_shares, phone_num)
-        #     print("wait for it ..")
-        #     sleep(5)
-        #     check_go(some_thread)
-    
-        # schedule.every(1).minutes.do(send_quote, fundname, num_shares, phone_num)
-        # if not check_go(some_thread):
-        #     print("done")
-        #     schedule.cancel()
-        # else:
-        #     #schedule.run_pending()
-        #     schedule.Job(5)
-        #     print(str(schedule.Job))
-        #     print("++++++++++++++GOING+++++++++++++")
-        #     sleep(10)
-        #     return
-
-def event_check(some_thread):
-    # returns True if _stopper is set
-    return some_thread.stopped()
-
-def schedule_quote(fundname, num_shares, phone_num, frequency, go=True):#all this should be in fund class (name, frequency, time, num_shares, contact):
+def schedule_quote(fundname, num_shares, phone_num, frequency):#all this should be in fund class (name, frequency, time, num_shares, contact):
     #TODO consider using datetime.timedelta or chron
     #TODO introduce fund as Thread object
     # list_funds = Fund.query.select_all().holder_id=User.id 
@@ -168,29 +124,33 @@ def schedule_quote(fundname, num_shares, phone_num, frequency, go=True):#all thi
             sleep(2629800)#secs in month
     elif frequency == "minutes":
         #for testing purposes only
-        print("HELLO")
         schedule.every(1).minutes.do(send_quote, fundname, num_shares, phone_num)
         while True:
             schedule.run_pending()
             print("wait for it. . . ")
             sleep(10)
 
-        # while go:
-        #     schedule.every(1).minutes.do(send_quote, fundname, num_shares, phone_num)
-        #     some_thread = Thread.current_thread()
-        #     if not event_check(some_thread):
-        #         schedule.run_pending()
-        #         print("++++++++++++++GOING+++++++++++++")
-        #         sleep(10)
-        #     else:
-        #         break
 
-    elif frequency == "never":
-        #TODO maybe make change frequency arg at Thread level??
-        print("=============stop==============")
-        #schedule.cancel(send_quote) no cancel function
     # """using datetime
     # next_check = datetime.datetime(2017, 9, 1, 17, 0, 0) check again at 5pm Sep. 1 2017
     # while datetime.datetime.now() < next_check:
     #     time.sleep(1)  check condition once per second"""
+
+# def remove_fund(fund_to_stop, proc_to_stop):
+#     # fund_to_stop = Fund.query.filter_by(fund_name=fundname).first()   
+#     # proc_to_stop = Proc.query.filter_by(fund_to_check=fund_to_stop.id).first()
+#     # stops the sending quote process via the process id number
+#     try:
+#         psutil.Process(proc_to_stop.p_id).terminate()
+#     #if going back and forth on browser screen list maybe cached but process gone
+#     # or if user decides they don't want the quote before process started
+#     except AttributeError:#, psutil.NoSuchProcess:
+#         print("hmmm?")
+#         pass
+
+#     # once messages are stopped then safe to delete
+#     Proc.query.filter_by(fund_to_check=fund_to_stop.id).delete()
+#     Fund.query.filter_by(fund_name=fundname).delete()
+#     db.session.commit()
+#     pass
        

@@ -7,7 +7,7 @@
 <p>here are your funds for removal</p>   
 <ul>
     {% for fund in funds %}
-        <li><a href="{{ url_for('remove_by_fundname', fundname=fund.fund_name) }}">{{ fund.fund_name }} </li>
+        <li><a href="{{ url_for('remove_by_fund_id', fund_id=fund.id) }}">{{ fund.fund_name }} </li>
     {% endfor %}
 </ul>
 

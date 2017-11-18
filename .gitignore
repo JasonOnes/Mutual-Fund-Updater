@@ -105,8 +105,10 @@ ENV/
 
 #sensitive numbers
 tokens.txt
+tokens.py
 
 #ignore the stupid twiltest
 twiltest.py
 
 #ignore the whole app.py?
+app.py
