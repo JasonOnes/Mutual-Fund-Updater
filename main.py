@@ -139,10 +139,31 @@ def update_num_shares(fund_name, user_id, new_shares):
     new_shares = float(new_shares)
     
     fund_with_same_name = Fund.query.filter_by(fund_name=fund_name).filter_by(holder_id=user_id).first()
+
+ # stop the old process
+    proc_to_stop = Proc.query.filter_by(fund_to_check_by_id=fund_with_same_name.id).first()
+    print("Stopping process: " + str(proc_to_stop.p_id))
+    try:
+        psutil.Process(proc_to_stop.p_id).terminate() 
+    except psutil.NoSuchProcess:
+        pass
+    Proc.query.filter_by(fund_to_check_by_id=fund_with_same_name.id).delete()
+    db.session.commit()
+
     old_num_shares = fund_with_same_name.num_shares
-    
     new_num_shares = old_num_shares + new_shares
     fund_with_same_name.num_shares = new_num_shares
+   
+    #TODO start new Process with new info here
+    proc = Process(name=fund_name, target=schedule_quote, args=[fund_with_same_name.fund_name, 
+                   fund_with_same_name.num_shares, fund_with_same_name.phone_num, 
+                   fund_with_same_name.freq])
+    proc.start()
+    p = psutil.Process(proc.pid)
+    proc.p_id = proc.pid    
+    updated_proc = Proc(fund_with_same_name.fund_name, fund_with_same_name.id, proc.pid)
+    db.session.add(updated_proc)
+
     db.session.add(fund_with_same_name)
     db.session.commit()
     
@@ -165,7 +186,7 @@ def go_or_no():
     
 
         fund = Fund.query.filter_by(fund_name=fundname).filter_by(holder_id=user.id).first()
-        fund_to_check = fund.id
+        fund_to_check_by_id = fund.id
         #tests if request with that fundname works before proceeding
         try:
             send_quote(fundname, num_shares, phone_num)
@@ -184,7 +205,7 @@ def go_or_no():
         # store the pid number in the Proc table as reference for updating/delete later
         proc.p_id = proc.pid    
         # term thread may be misleading but it's how I think about these processes only used here 
-        new_thread = Proc(fundname, fund_to_check, p_id=proc.pid)
+        new_thread = Proc(fundname, fund_to_check_by_id, p_id=proc.pid)
         db.session.add(new_thread)
         db.session.commit()    
         return render_template('/confo.html', fund=fundname)
@@ -259,7 +280,7 @@ def remove_by_fund_id(fund_id):
     # stops the sending of quotes and deletes process and fund from db
     fund_to_stop = Fund.query.filter_by(id=fund_id).first()  
     fundname = fund_to_stop.fund_name
-    proc_to_stop = Proc.query.filter_by(fund_to_check=fund_to_stop.id).first()
+    proc_to_stop = Proc.query.filter_by(fund_to_check_by_id=fund_to_stop.id).first()
     # stops the sending quote process via the process id number
     try:
         psutil.Process(proc_to_stop.p_id).terminate()
@@ -273,7 +294,7 @@ def remove_by_fund_id(fund_id):
         pass
 
     # once messages are stopped then safe to delete
-    Proc.query.filter_by(fund_to_check=fund_to_stop.id).delete()
+    Proc.query.filter_by(fund_to_check_by_id=fund_to_stop.id).delete()
     Fund.query.filter_by(id=fund_id).delete()
    
     db.session.commit()
@@ -300,7 +321,7 @@ def del_user(username):
     #funds = Fund.query.all()
     for fund in funds:
         fund_to_stop = Fund.query.filter_by(fund_name=fund.fund_name).filter_by(holder_id=user.id).first()   
-        proc_to_stop = Proc.query.filter_by(fund_to_check=fund_to_stop.id).first()
+        proc_to_stop = Proc.query.filter_by(fund_to_check_by_id=fund_to_stop.id).first()
         try:
             psutil.Process(proc_to_stop.p_id).terminate()
 #if going back and forth on browser screen list maybe cached but process gone
@@ -311,7 +332,7 @@ def del_user(username):
             pass
         except NoneType:
             pass
-        Proc.query.filter_by(fund_to_check=fund_to_stop.id).delete()
+        Proc.query.filter_by(fund_to_check_by_id=fund_to_stop.id).delete()
         Fund.query.filter_by(id=fund_to_stop.id).delete()
     db.session.commit()
 

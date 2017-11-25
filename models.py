@@ -48,10 +48,10 @@ class Proc(db.Model):
     # mainly just used to store process id numbers
     id = db.Column(db.Integer, primary_key=True)
     fund_name = db.Column(db.String(5))
-    fund_to_check = db.Column(db.Integer, db.ForeignKey('fund.id'))
+    fund_to_check_by_id = db.Column(db.Integer, db.ForeignKey('fund.id'))
     p_id = db.Column(db.Integer)
 
-    def __init__(self, fund_name, fund_to_check, p_id):
+    def __init__(self, fund_name, fund_to_check_by_id, p_id):
         self.fund_name = fund_name
-        self.fund_to_check = fund_to_check
+        self.fund_to_check_by_id = fund_to_check_by_id
         self.p_id = p_id
