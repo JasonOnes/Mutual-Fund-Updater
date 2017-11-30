@@ -5,6 +5,7 @@ import re
 import requests
 from multiprocessing import Process
 import psutil
+from socket import gethostname
 
 from models import User, Fund, Proc
 from app import app, db
@@ -344,5 +345,6 @@ def del_user(username):
 
 
 if __name__ == "__main__":
-
-    app.run()
+    if 'liveconsole' not in gethostname():
+            app.run()
+    
