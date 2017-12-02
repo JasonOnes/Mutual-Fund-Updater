@@ -7,10 +7,12 @@ from multiprocessing import Process
 import psutil
 from socket import gethostname
 
+
 from models import User, Fund, Proc
 from app import app, db
 from hashutils import check_pw_hash
 from fundstuff import *
+#import fundstuff
 
 
 
@@ -345,6 +347,9 @@ def del_user(username):
 
 
 if __name__ == "__main__":
+    app.run()
+    # below for pythonanywhere deploy
+    """
     if 'liveconsole' not in gethostname():
             app.run()
-    
+    """
