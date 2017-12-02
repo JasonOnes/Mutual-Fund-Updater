@@ -14,6 +14,17 @@ from hashutils import check_pw_hash
 from fundstuff import *
 #import fundstuff
 
+def start_updates(username):
+    # starts/restarts the update process, uses username since unique and a session attrib
+    user = User.query.filter_by(username=username).first()
+    portfolio = Portfolio.query.filter_by(holder_id=user.id).first()
+    funds = Fund.query.filter_by(portfolio_id=portfolio.id).all()
+    for fund in funds:
+        schedule_quote(fund.fund_name, fund.num_shares, fund.phone_num, fund.freq)
+    
+
+#TODO may need to use scheduler.shutdown() with stop_updates()
+# or maybe unschedule_quote() ?
 
 
 @app.route('/')
@@ -72,6 +83,7 @@ def edit():
        
 def add_fund():
     fund_name = request.form['fund'].upper()
+    username = session['username'] 
     #num_shares = request.form['num_shares']
     # check to see if form field filled if not default to 1
     if request.form['num_shares']:
@@ -80,8 +92,7 @@ def add_fund():
         num_shares = 1.0
 
     freq = request.form['frequency']
-    holder = User.query.filter_by(username=session['username']).first()
-    print("THIS IS THE USER ID:     " + str(holder.id))
+    holder = User.query.filter_by(username=username).first()
     #portfolio = Portfolio.get_by_user_id(holder.id)
     portfolio = Portfolio.query.filter_by(holder_id=holder.id).first()
     match = re.compile(r"[A-Z]{4}X")
@@ -100,9 +111,8 @@ def add_fund():
             flash("Not a valid American or Canadian phone number. Try again with (XXX)XXX-XXXX format.", "negative")
             return render_template('edit.html', username=holder.username, fund=fund_name, num_shares=num_shares)
     else: 
-        flash("Must provide number", "negative")
+        flash("Must provide a phone number", "negative")
         return render_template('edit.html', username=holder.username, fund=fund_name, num_shares=num_shares)
-    #TODO return template with name, fund, and num_shares
 
     funds_with_that_name = Fund.query.filter_by(fund_name=fund_name).filter_by(portfolio_id=portfolio.id).count()
     
@@ -117,9 +127,9 @@ def add_fund():
         fund_with_same_name = Fund.query.filter_by(fund_name=fund_name).filter_by(portfolio_id=portfolio.id).first()
         old_num_shares = fund_with_same_name.num_shares
         new_num_shares = old_num_shares + new_shares
-        username = session['username']    
+          
         return render_template("share-update.html", fund = fund_with_same_name, addition = new_shares, username = username)
-        #TODO check and see if user want to add more shares or RESET number of shares to new number
+        
     else:
         flash("Not a valid fund", "negative")
         return render_template('edit.html', username=holder.username)
@@ -134,7 +144,8 @@ def update_shares_or_no():
         this_user = User.query.filter_by(username=username).first()
         this_portfolio = Portfolio.query.filter_by(holder_id=this_user.id).first()
         #this_portfolio = Portfolio.get_by_user_id(this_user.id)
-        fund = Fund.query.filter_by(portfolio_id=this_portfolio.id).filter_by(fund_name=fund_name).first()  
+        fund = Fund.query.filter_by(portfolio_id=this_portfolio.id).filter_by(fund_name=fund_name).first()
+       
         return redirect('edit-funds/' + fund.fund_name + "/" + str(this_user.id) + "/" + str(new_shares))
     elif answer =='no':
         flash("No additional shares added.", "positive")
@@ -145,6 +156,7 @@ def update_shares_or_no():
 
 @app.route("/edit-funds/<fund_name>/<user_id>/<new_shares>", methods=['GET'])
 def update_num_shares(fund_name, user_id, new_shares):
+    username = session['username']
     user_id = int(user_id)
     new_shares = float(new_shares)
     this_port = Portfolio.query.filter_by(holder_id=user_id).first()
@@ -157,7 +169,7 @@ def update_num_shares(fund_name, user_id, new_shares):
 
     # db.session.add(fund_with_same_name)
     db.session.commit()
-    
+    start_updates(username)
     flash(fund_name + " has been updated with " + str(new_shares) + " new shares.", "positive")
     return redirect("view-updates")
 
@@ -188,17 +200,7 @@ def go_or_no():
             remove_by_fund_id(fund.id)
             return render_template('edit.html', username=username)
 
-        # #Like threading but with multiprocessing
-        # proc = Process(name=fundname, target=schedule_quote, args=[fundname, num_shares, phone_num, frequency])
-        # proc.start()
-        # # proc doesn't get a pid until run
-        # p = psutil.Process(proc.pid)
-        # # store the pid number in the Proc table as reference for updating/delete later
-        # proc.p_id = proc.pid    
-        # # term thread may be misleading but it's how I think about these processes only used here 
-        # new_thread = Proc(fundname, fund_to_check_by_id, p_id=proc.pid)
-        # db.session.add(new_thread)
-        # db.session.commit()    
+        start_updates(username)
         return render_template('/confo.html', fund=fundname)
     else:
         # user doesn't agree to inputs or changes mind fund removed 
@@ -273,6 +275,7 @@ def get_delete():
 @app.route('/deleted/<fund_id>')
 def remove_by_fund_id(fund_id):
     # stops the sending of quotes and deletes process and fund from db
+    username = session['username']
     fund_to_stop = Fund.query.filter_by(id=fund_id).first()  
 
     fundname = fund_to_stop.fund_name
@@ -296,6 +299,7 @@ def remove_by_fund_id(fund_id):
     Fund.query.filter_by(id=fund_id).delete()
     print("------------FUNDNAME NOW:  " + fundname)
     db.session.commit()
+    start_updates(username)
     return render_template('deleted.html', fund=fundname)
         
 @app.route('/cancel', methods=['GET', 'POST']) 

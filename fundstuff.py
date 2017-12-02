@@ -4,10 +4,11 @@ from requests.exceptions import ConnectionError
 from moneyed import Money, USD
 from twilio.rest import Client 
 import schedule #TODO look into APScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
+from time import sleep
+
 from bs4 import BeautifulSoup as bs 
-from time import sleep 
-from threading import Thread
-import psutil
+
 
 #TODO refactor functions to minimize arguments to one
 
@@ -63,13 +64,7 @@ def current_value(fundname, num_shares):
 def send_quote(fundname, num_shares, phone_num):
     # TODO maybe put target conditionals here, if int(value) = fundname.target_value: msg else: pass (?)
     # add a target paramater to send_quote target, then convert to money for comparison?"""
-    """if fundname == "VGPMX" and value >= Money(4000, currency='USD'): #compare value to money instance of set value
-        return(fund_info.get_price)
-    elif fundname == "VTSMX" and value >= Money(10000, currency='USD'):
-        return(fund_info.get_price)
-    else:
-        pass
-"""
+    
     value = current_value(fundname, num_shares)
     msg = "Today you hold " + str(value) + " of {}.".format(fundname)
     account_sid = x
@@ -90,43 +85,51 @@ def schedule_quote(fundname, num_shares, phone_num, frequency):#all this should 
     phone_num = fundname.phone_num
     frequency = fundname.freq"""
 
-    if frequency == "day":
-        schedule.every().day.at("17:40").do(send_quote, fundname, num_shares, phone_num)
-        while True:
-            schedule.run_pending()
-            print("++++++++++++++GOING+++++++++++++")
-            sleep(60)#TODO timestamp when app run started to see if 24 hours to check?
-    elif frequency == "week":
-        """
-         schedule.every().week.do(send_quote, fundname, num_shares, phone_num
-         while datetime.datetime.now() < scheduled_time:
-             schedule.run_pending()
-             time.sleep(1)
-         or 
-        go by day of week"""
-        #TODO ask user for day of week
-        schedule.every().friday.at("17:45").do(send_quote, fundname, num_shares, phone_num)
-        while True:
-            schedule.run_pending()
-            sleep(59) #59 or a minus 1 increment may produce two alerts
-            #time.sleep(86400)#secs in day
-    elif frequency == "month":
-        schedule.every(4).weeks.at("17:52").do(send_quote, fundname, num_shares, phone_num) #leapyear?
-        while True:
-            schedule.run_pending()
-            sleep(604800)#secs in week
-    elif frequency == "quarter":
-        schedule.every(13).weeks.do(send_quote, fundname, num_shares, phone_num)
-        while True:
-            schedule.run_pending()
-            sleep(2629800)#secs in month
-    elif frequency == "minutes":
-        #for testing purposes only
-        schedule.every(1).minutes.do(send_quote, fundname, num_shares, phone_num)
-        while True:
-            schedule.run_pending()
-            print("wait for it. . . ")
-            sleep(10)
+    skedge = BackgroundScheduler()
+    if frequency == "minutes":
+
+        skedge.add_job(send_quote,  'interval', minutes=1, args=[fundname, num_shares, phone_num])
+        skedge.start()
+    # if frequency == "day":
+    #     schedule.every().day.at("17:40").do(send_quote, fundname, num_shares, phone_num)
+    #     while True:
+    #         schedule.run_pending()
+    #         print("++++++++++++++GOING+++++++++++++")
+    #         sleep(60)#TODO timestamp when app run started to see if 24 hours to check?
+    # elif frequency == "week":
+    #     """
+    #      schedule.every().week.do(send_quote, fundname, num_shares, phone_num
+    #      while datetime.datetime.now() < scheduled_time:
+    #          schedule.run_pending()
+    #          time.sleep(1)
+    #      or 
+    #     go by day of week"""
+    #     #TODO ask user for day of week
+    #     schedule.every().friday.at("17:45").do(send_quote, fundname, num_shares, phone_num)
+    #     while True:
+    #         schedule.run_pending()
+    #         sleep(59) #59 or a minus 1 increment may produce two alerts
+    #         #time.sleep(86400)#secs in day
+    # elif frequency == "month":
+    #     schedule.every(4).weeks.at("17:52").do(send_quote, fundname, num_shares, phone_num) #leapyear?
+    #     while True:
+    #         schedule.run_pending()
+    #         sleep(604800)#secs in week
+    # elif frequency == "quarter":
+    #     schedule.every(13).weeks.do(send_quote, fundname, num_shares, phone_num)
+    #     while True:
+    #         schedule.run_pending()
+    #         sleep(2629800)#secs in month
+    # elif frequency == "minutes":
+    #     #for testing purposes only
+    #     schedule.every(1).minutes.do(send_quote, fundname, num_shares, phone_num)
+    #     while True:
+    #         schedule.run_pending()
+    #         print("wait for it. . . ")
+    #         sleep(10)
+    #         pass
+
+            
 
 
     # """using datetime

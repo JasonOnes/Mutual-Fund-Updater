@@ -47,8 +47,11 @@ class Portfolio(db.Model):
     def __init__(self, holder_id):
         self.holder_id = holder_id
 
-    def get_by_user_id(user_id):
-        if Portfolio.holder_id == user_id:
-            return Portfolio
+#TODO make sql query shorter with helper funct?
+    # def get_by_user_id(user_id):
+    #     if Portfolio.holder_id == user_id:
+    #         return Portfolio
+
+    
 
         
