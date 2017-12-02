@@ -9,6 +9,7 @@ from time import sleep
 from threading import Thread
 import psutil
 
+#TODO refactor functions to minimize arguments to one
 
 #from main import Fund, Proc, db
 from tokens import x, y, phone

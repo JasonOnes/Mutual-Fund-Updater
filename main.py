@@ -8,7 +8,7 @@ import psutil
 from socket import gethostname
 
 
-from models import User, Fund, Proc
+from models import User, Fund, Portfolio
 from app import app, db
 from hashutils import check_pw_hash
 from fundstuff import *

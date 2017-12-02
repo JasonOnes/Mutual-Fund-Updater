@@ -10,7 +10,7 @@ class User(db.Model):
     pw_hash = db.Column(db.String(100))
     
     # TODO phone or email contact = db.Column(db.) 
-    funds = db.relationship('Fund', backref='holder')
+    
 
     def __init__(self, username, password):
         self.username = username
@@ -25,33 +25,24 @@ class Fund(db.Model):
     num_shares = db.Column(db.Float)
     freq = db.Column(db.String(10))
     phone_num = db.Column(db.String(20))
-    e_mail = db.Column(db.String(50))
-    holder_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    portfolio_id = db.Column(db.Integer, db.ForeignKey('portfolio.id'))
     
-    #TODO look into validation at model level
-    # __tablename__ = 'num_shares'
-    # @validates('num_shares')
-    # def validate_shares(self, key, num_shares):
-    #     assert int in num_shares
-    #     return num_shares
 
-    def __init__(self, fund_name, num_shares, freq, phone_num, holder_id):
+    def __init__(self, fund_name, num_shares, freq, phone_num, portfolio_id):
         self.fund_name = fund_name
         self.num_shares = num_shares
         self.freq = freq
         self.phone_num = phone_num
-        self.holder_id = holder_id
+        self.portfolio_id = portfolio_id
         
      
-
-class Proc(db.Model):
-    # mainly just used to store process id numbers
+class Portfolio(db.Model):
+    # links to all funds user wants updates on
     id = db.Column(db.Integer, primary_key=True)
-    fund_name = db.Column(db.String(5))
-    fund_to_check_by_id = db.Column(db.Integer, db.ForeignKey('fund.id'))
-    p_id = db.Column(db.Integer)
+    #holder = db.Column(db.String(50), db.ForeignKey('user.username'))
+    holder_id = db.Column(db.Integer, db.ForeignKey('user.id'))
 
-    def __init__(self, fund_name, fund_to_check_by_id, p_id):
-        self.fund_name = fund_name
-        self.fund_to_check_by_id = fund_to_check_by_id
-        self.p_id = p_id
+    funds = db.relationship('Fund', backref='portfolio')
+    
+    def __init__(self, holder_id):
+        self.holder_id = holder_id
