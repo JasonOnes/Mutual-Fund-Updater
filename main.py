@@ -48,6 +48,10 @@ def add_user():
         new_user = User(name, psw)
         db.session.add(new_user)
         db.session.commit()
+        # need to do this AFTER new_user commited so id is generated
+        new_user_portfolio = Portfolio(holder_id=new_user.id)
+        db.session.add(new_user_portfolio)
+        db.session.commit()
         session['username'] = new_user.username
         flash("Logged IN!", "positive")
         return render_template('edit.html', username=session['username'])       
@@ -77,9 +81,12 @@ def add_fund():
 
     freq = request.form['frequency']
     holder = User.query.filter_by(username=session['username']).first()
+    print("THIS IS THE USER ID:     " + str(holder.id))
+    #portfolio = Portfolio.get_by_user_id(holder.id)
+    portfolio = Portfolio.query.filter_by(holder_id=holder.id).first()
     match = re.compile(r"[A-Z]{4}X")
     fund_match = match.fullmatch(fund_name)
-    funds_with_that_name = Fund.query.filter_by(fund_name=fund_name).count()
+   
 
     phone_contact = (request.form['tel_contact'])
     # phone will be further validated with test call once a fund is added
@@ -97,17 +104,17 @@ def add_fund():
         return render_template('edit.html', username=holder.username, fund=fund_name, num_shares=num_shares)
     #TODO return template with name, fund, and num_shares
 
-    funds_with_that_name = Fund.query.filter_by(fund_name=fund_name).filter_by(holder_id=holder.id).count()
+    funds_with_that_name = Fund.query.filter_by(fund_name=fund_name).filter_by(portfolio_id=portfolio.id).count()
     
     if fund_match and funds_with_that_name == 0:
-        new_fund = Fund(fund_name, num_shares, freq, phone_num=phone_contact, holder_id=holder.id)
+        new_fund = Fund(fund_name, num_shares, freq, phone_num=phone_contact, portfolio_id=portfolio.id)
         db.session.add(new_fund)
         db.session.commit()
         return render_template('/confirmation.html', username=holder, phone=phone_contact, shares=num_shares, fundname=fund_name, frequency=freq)
 
     elif fund_match and funds_with_that_name > 0:
         new_shares = float(request.form['num_shares'])
-        fund_with_same_name = Fund.query.filter_by(fund_name=fund_name).filter_by(holder_id=holder.id).first()
+        fund_with_same_name = Fund.query.filter_by(fund_name=fund_name).filter_by(portfolio_id=portfolio.id).first()
         old_num_shares = fund_with_same_name.num_shares
         new_num_shares = old_num_shares + new_shares
         username = session['username']    
@@ -120,16 +127,16 @@ def add_fund():
 @app.route("/share-update", methods=['POST'])
 def update_shares_or_no():
     answer = request.form['shares-update']
-
+    username = session['username']
     if answer == 'yes':
         new_shares = request.form['num_shares']
         fund_name = request.form['fund_name']
-        username = session['username']
-        _user = User.query.filter_by(username=username).first()
-        fund = Fund.query.filter_by(holder_id=_user.id).filter_by(fund_name=fund_name).first()  
-        return redirect('edit-funds/' + fund.fund_name + "/" + str(_user.id) + "/" + str(new_shares))
+        this_user = User.query.filter_by(username=username).first()
+        this_portfolio = Portfolio.query.filter_by(holder_id=this_user.id).first()
+        #this_portfolio = Portfolio.get_by_user_id(this_user.id)
+        fund = Fund.query.filter_by(portfolio_id=this_portfolio.id).filter_by(fund_name=fund_name).first()  
+        return redirect('edit-funds/' + fund.fund_name + "/" + str(this_user.id) + "/" + str(new_shares))
     elif answer =='no':
-        username = session['username']
         flash("No additional shares added.", "positive")
         return render_template('edit.html', username=username)
     elif answer == 'maybe':
@@ -140,34 +147,15 @@ def update_shares_or_no():
 def update_num_shares(fund_name, user_id, new_shares):
     user_id = int(user_id)
     new_shares = float(new_shares)
-    
-    fund_with_same_name = Fund.query.filter_by(fund_name=fund_name).filter_by(holder_id=user_id).first()
-
- # stop the old process
-    proc_to_stop = Proc.query.filter_by(fund_to_check_by_id=fund_with_same_name.id).first()
-    print("Stopping process: " + str(proc_to_stop.p_id))
-    try:
-        psutil.Process(proc_to_stop.p_id).terminate() 
-    except psutil.NoSuchProcess:
-        pass
-    Proc.query.filter_by(fund_to_check_by_id=fund_with_same_name.id).delete()
-    db.session.commit()
+    this_port = Portfolio.query.filter_by(holder_id=user_id).first()
+    #this_port = Portfolio.get_by_user_id(user_id)
+    fund_with_same_name = Fund.query.filter_by(fund_name=fund_name).filter_by(portfolio_id=this_port.id).first()
 
     old_num_shares = fund_with_same_name.num_shares
     new_num_shares = old_num_shares + new_shares
     fund_with_same_name.num_shares = new_num_shares
-   
-    #TODO start new Process with new info here
-    proc = Process(name=fund_name, target=schedule_quote, args=[fund_with_same_name.fund_name, 
-                   fund_with_same_name.num_shares, fund_with_same_name.phone_num, 
-                   fund_with_same_name.freq])
-    proc.start()
-    p = psutil.Process(proc.pid)
-    proc.p_id = proc.pid    
-    updated_proc = Proc(fund_with_same_name.fund_name, fund_with_same_name.id, proc.pid)
-    db.session.add(updated_proc)
 
-    db.session.add(fund_with_same_name)
+    # db.session.add(fund_with_same_name)
     db.session.commit()
     
     flash(fund_name + " has been updated with " + str(new_shares) + " new shares.", "positive")
@@ -178,17 +166,17 @@ def go_or_no():
     # confirms whether user wants to receive messages with data provided
     answer = request.form['confirm']
     username = session['username']
-    user = User.query.filter_by(username=username).first()
-    user_id = user.id 
-    
-    if answer == 'yes':
-        fundname = request.form['fundname']
-        phone_num = request.form['phone']
-        num_shares = request.form['shares']
-        frequency = request.form['freq']
-    
+    fundname = request.form['fundname']
+    phone_num = request.form['phone']
+    num_shares = request.form['shares']
+    frequency = request.form['freq']
 
-        fund = Fund.query.filter_by(fund_name=fundname).filter_by(holder_id=user.id).first()
+    user = User.query.filter_by(username=username).first() 
+    #portfolio = Portfolio.get_by_user_id(user.id)
+    portfolio = Portfolio.query.filter_by(holder_id=user.id).first()
+    fund = Fund.query.filter_by(fund_name=fundname).filter_by(portfolio_id=portfolio.id).first()
+
+    if answer == 'yes':
         fund_to_check_by_id = fund.id
         #tests if request with that fundname works before proceeding
         try:
@@ -200,17 +188,17 @@ def go_or_no():
             remove_by_fund_id(fund.id)
             return render_template('edit.html', username=username)
 
-        #Like threading but with multiprocessing
-        proc = Process(name=fundname, target=schedule_quote, args=[fundname, num_shares, phone_num, frequency])
-        proc.start()
-        # proc doesn't get a pid until run
-        p = psutil.Process(proc.pid)
-        # store the pid number in the Proc table as reference for updating/delete later
-        proc.p_id = proc.pid    
-        # term thread may be misleading but it's how I think about these processes only used here 
-        new_thread = Proc(fundname, fund_to_check_by_id, p_id=proc.pid)
-        db.session.add(new_thread)
-        db.session.commit()    
+        # #Like threading but with multiprocessing
+        # proc = Process(name=fundname, target=schedule_quote, args=[fundname, num_shares, phone_num, frequency])
+        # proc.start()
+        # # proc doesn't get a pid until run
+        # p = psutil.Process(proc.pid)
+        # # store the pid number in the Proc table as reference for updating/delete later
+        # proc.p_id = proc.pid    
+        # # term thread may be misleading but it's how I think about these processes only used here 
+        # new_thread = Proc(fundname, fund_to_check_by_id, p_id=proc.pid)
+        # db.session.add(new_thread)
+        # db.session.commit()    
         return render_template('/confo.html', fund=fundname)
     else:
         # user doesn't agree to inputs or changes mind fund removed 
@@ -260,7 +248,9 @@ def show_updates():
         if session['username']:
             username = session['username']
             _user = User.query.filter_by(username=username).first()
-            funds = Fund.query.filter_by(holder_id=_user.id).all() 
+            _portfolio = Portfolio.query.filter_by(holder_id=_user.id).first()
+           # _portfolio = Portfolio.get_by_user_id(_user.id)
+            funds = Fund.query.filter_by(portfolio_id=_portfolio.id).all() 
             return render_template('view-updates.html', username=username, funds=funds)
     except KeyError:
         flash("You aren't logged in!", "negative")
@@ -272,7 +262,9 @@ def get_delete():
         if session['username']:
             username = session['username']
             _user = User.query.filter_by(username=username).first()
-            funds = Fund.query.filter_by(holder_id=_user.id).all() 
+            _port = Portfolio.query.filter_by(holder_id=_user.id).first()
+            #_port = Portfolio.get_by_user_id(_user.id)
+            funds = Fund.query.filter_by(portfolio_id=_port.id).all() 
             return render_template('funds-for-removal.html', username=username, funds=funds)
     except KeyError:
         flash("You aren't logged in!", "negative")
@@ -282,24 +274,27 @@ def get_delete():
 def remove_by_fund_id(fund_id):
     # stops the sending of quotes and deletes process and fund from db
     fund_to_stop = Fund.query.filter_by(id=fund_id).first()  
-    fundname = fund_to_stop.fund_name
-    proc_to_stop = Proc.query.filter_by(fund_to_check_by_id=fund_to_stop.id).first()
-    # stops the sending quote process via the process id number
-    try:
-        psutil.Process(proc_to_stop.p_id).terminate()
-    #if going back and forth on browser screen list maybe cached but process gone
-    # or if user decides they don't want the quote before process started
-    except AttributeError:#, psutil.NoSuchProcess:
-        print("hmmm?")
-        pass
-    except psutil.NoSuchProcess:
-        print("ahhh:")
-        pass
 
-    # once messages are stopped then safe to delete
-    Proc.query.filter_by(fund_to_check_by_id=fund_to_stop.id).delete()
+    fundname = fund_to_stop.fund_name
+
+    print("++++++FUNDNAME == " + fundname)
+    # proc_to_stop = Proc.query.filter_by(fund_to_check_by_id=fund_to_stop.id).first()
+    # # stops the sending quote process via the process id number
+    # try:
+    #     psutil.Process(proc_to_stop.p_id).terminate()
+    # #if going back and forth on browser screen list maybe cached but process gone
+    # # or if user decides they don't want the quote before process started
+    # except AttributeError:#, psutil.NoSuchProcess:
+    #     print("hmmm?")
+    #     pass
+    # except psutil.NoSuchProcess:
+    #     print("ahhh:")
+    #     pass
+
+    # # once messages are stopped then safe to delete
+    # Proc.query.filter_by(fund_to_check_by_id=fund_to_stop.id).delete()
     Fund.query.filter_by(id=fund_id).delete()
-   
+    print("------------FUNDNAME NOW:  " + fundname)
     db.session.commit()
     return render_template('deleted.html', fund=fundname)
         
@@ -320,25 +315,27 @@ def verify_cancel():
 @app.route('/cancel/<username>', methods=['GET', 'POST'])
 def del_user(username):
     user = User.query.filter_by(username=username).first()
-    funds = Fund.query.filter_by(holder_id=user.id).all()
+    portfolio = Portfolio.query.filter_by(holder_id=user.id).first()
+    #portfolio = Portfolio.get_by_user_id(user.id)
+    funds = Fund.query.filter_by(portfolio_id=portfolio.id).all()
     #funds = Fund.query.all()
     for fund in funds:
-        fund_to_stop = Fund.query.filter_by(fund_name=fund.fund_name).filter_by(holder_id=user.id).first()   
-        proc_to_stop = Proc.query.filter_by(fund_to_check_by_id=fund_to_stop.id).first()
-        try:
-            psutil.Process(proc_to_stop.p_id).terminate()
-#if going back and forth on browser screen list maybe cached but process gone
-# or if user decides they don't want the quote before process started
-        except AttributeError:
-            pass
-        except psutil.NoSuchProcess:
-            pass
-        except NoneType:
-            pass
-        Proc.query.filter_by(fund_to_check_by_id=fund_to_stop.id).delete()
-        Fund.query.filter_by(id=fund_to_stop.id).delete()
-    db.session.commit()
-
+#         fund_to_stop = Fund.query.filter_by(fund_name=fund.fund_name).filter_by(holder_id=user.id).first()   
+#         proc_to_stop = Proc.query.filter_by(fund_to_check_by_id=fund_to_stop.id).first()
+#         try:
+#             psutil.Process(proc_to_stop.p_id).terminate()
+# #if going back and forth on browser screen list maybe cached but process gone
+# # or if user decides they don't want the quote before process started
+#         except AttributeError:
+#             pass
+#         except psutil.NoSuchProcess:
+#             pass
+#         except NoneType:
+#             pass
+#         Proc.query.filter_by(fund_to_check_by_id=fund_to_stop.id).delete()
+        Fund.query.filter_by(id=fund.id).delete()
+    #db.session.commit()
+    Portfolio.query.filter_by(id=portfolio.id).delete()
     User.query.filter_by(username=username).delete()
     # remove user from session
     del session['username']
