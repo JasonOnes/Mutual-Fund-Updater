@@ -13,45 +13,19 @@ from app import app, db
 from hashutils import check_pw_hash
 from fundstuff import *
 from skedge import skedge
-#import fundstuff
+
 
 #**************MAX updates 10 - as per default jobstores threads***************
 def start_updates(username):
-    # starts/restarts the update process, uses username since unique and a session attrib
+    # starts/restarts the update process, uses username since unique and a session attrib 
     user = User.query.filter_by(username=username).first()
     portfolio = Portfolio.query.filter_by(holder_id=user.id).first()
     funds = Fund.query.filter_by(portfolio_id=portfolio.id).all()
     for fund in funds:
         schedule_quote(fund)
-    
-def stop_updates(username):
-    user = User.query.filter_by(username=username).first()
-    portfolio = Portfolio.query.filter_by(holder_id=user.id).first()
-    funds = Fund.query.filter_by(portfolio_id=portfolio.id).all()
-    for fund in funds:
-        unschedule_quote(fund)
-   
-       
-#TODO may need to use scheduler.shutdown() with stop_updates()
-# or maybe unschedule_quote() ?
-
-def stop_all_jobs(BackgroundScheduler):
-    for job in BackgroundScheduler.get_jobs():
-        print(job)
-        BackgroundScheduler.remove_job(job)
 
 @app.route('/')
 def _home():
-    #skedge.shutdown(wait=False)
-    #skedge.remove_all_jobs()
-    #skedge.remove_jobstore()
-    #skedge.print_jobs()
-    #skedge._lookup_jobstore()
-    #skedge._lookup_job(21)
-    print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-    
-    # skedge.shutdown()
-    # stop_all_jobs(skedge)
     return redirect('/intro')
 
 @app.route('/intro')
@@ -84,7 +58,7 @@ def add_user():
         db.session.commit()
         # need to do this AFTER new_user commited so id is generated
         new_user_portfolio = Portfolio(holder_id=new_user.id)
-        #start a schedule for user's updates (jobs)
+        #start a schedule for user's updates (jobs) to be added to
         skedge.start()
         db.session.add(new_user_portfolio)
         db.session.commit()
@@ -109,7 +83,6 @@ def edit():
 def add_fund():
     fund_name = request.form['fund'].upper()
     username = session['username'] 
-    #num_shares = request.form['num_shares']
     # check to see if form field filled if not default to 1
     if request.form['num_shares']:
         num_shares = float(request.form['num_shares'])
@@ -118,12 +91,10 @@ def add_fund():
 
     freq = request.form['frequency']
     holder = User.query.filter_by(username=username).first()
-    #portfolio = Portfolio.get_by_user_id(holder.id)
     portfolio = Portfolio.query.filter_by(holder_id=holder.id).first()
     match = re.compile(r"[A-Z]{4}X")
     fund_match = match.fullmatch(fund_name)
    
-
     phone_contact = (request.form['tel_contact'])
     # phone will be further validated with test call once a fund is added
     if phone_contact != "":
@@ -346,7 +317,6 @@ def del_user(username):
    
     User.query.filter_by(username=username).delete()
     # remove user from session
-   
     del session['username']
     db.session.commit()
     return render_template('cancel-confirmed.html', username=username)
@@ -354,8 +324,6 @@ def del_user(username):
 
 if __name__ == "__main__":
     
-    # skedge.remove_all_jobs()
-    # skedge.shutdown()
     app.run()
     # below for pythonanywhere deploy
     """

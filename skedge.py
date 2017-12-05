@@ -1,7 +1,7 @@
 from pytz import utc
 
 from apscheduler.schedulers.background import BackgroundScheduler
-
+from apscheduler.schedulers import SchedulerAlreadyRunningError
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
 
@@ -20,6 +20,12 @@ job_defaults = {
 }
 skedge = BackgroundScheduler(jobstores=jobstores, executors=executors, job_defaults=job_defaults, timezone=utc, id=id)
 
+
+def skedge_check():
+    try:
+        skedge.start() 
+    except SchedulerAlreadyRunningError:
+        pass 
 
 #skedge = BackgroundScheduler(daemon=True)
 # skedge= BackgroundScheduler({

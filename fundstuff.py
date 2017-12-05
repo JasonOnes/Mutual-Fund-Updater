@@ -8,11 +8,9 @@ import schedule #TODO look into APScheduler
 from time import sleep
 from bs4 import BeautifulSoup as bs 
 
-
 #TODO refactor functions to minimize arguments to one
 
-#from main import Fund, Proc, db
-from skedge import skedge
+from skedge import skedge, skedge_check
 from tokens import x, y, phone
 
 def getQuote(fundname):
@@ -80,23 +78,21 @@ def send_quote(fundname, num_shares, phone_num):
 #def schedule_quote(fundname, num_shares, phone_num, frequency):#all this should be in fund class (name, frequency, time, num_shares, contact):
     #TODO consider using datetime.timedelta or chron
 def schedule_quote(fund):
-    """TODO get string fundname to Fund object so schedule_quote(fund)
-    num_shares = fundname.num_shares
-    phone_num = fundname.phone_num
-    frequency = fundname.freq"""
-
+    
     # skedge = BackgroundScheduler({
     #     'apscheduler.jobstores.default':{
     #     'type': 'sqlalchemy',
     #     'url': 'sqlite:///jobs.sqlite'}
     # })
 
-    if fund.freq == "quarter":
-        
-        skedge.remove_all_jobs()
     if fund.freq == "minutes":
         #job saved by a string of the funds id in default jobstores for later stoppage by id
         skedge.add_job(send_quote,  'interval', minutes=1, args=[fund.fund_name, fund.num_shares, fund.phone_num], id=str(fund.id), replace_existing=True)
+        print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+        skedge.print_jobs()   
+
+        skedge_check()
+       
        # skedge.shutdown()
        #TODO move schedule start to main so that it is only started once and jobs added later
         #skedge.start()
