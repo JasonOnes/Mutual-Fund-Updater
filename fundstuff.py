@@ -4,15 +4,15 @@ from requests.exceptions import ConnectionError
 from moneyed import Money, USD
 from twilio.rest import Client 
 import schedule #TODO look into APScheduler
-from apscheduler.schedulers.background import BackgroundScheduler
-from time import sleep
 
+from time import sleep
 from bs4 import BeautifulSoup as bs 
 
 
 #TODO refactor functions to minimize arguments to one
 
 #from main import Fund, Proc, db
+from skedge import skedge
 from tokens import x, y, phone
 
 def getQuote(fundname):
@@ -77,19 +77,29 @@ def send_quote(fundname, num_shares, phone_num):
     ) 
     return print(message.sid)
     
-def schedule_quote(fundname, num_shares, phone_num, frequency):#all this should be in fund class (name, frequency, time, num_shares, contact):
+#def schedule_quote(fundname, num_shares, phone_num, frequency):#all this should be in fund class (name, frequency, time, num_shares, contact):
     #TODO consider using datetime.timedelta or chron
-
+def schedule_quote(fund):
     """TODO get string fundname to Fund object so schedule_quote(fund)
     num_shares = fundname.num_shares
     phone_num = fundname.phone_num
     frequency = fundname.freq"""
 
-    skedge = BackgroundScheduler()
-    if frequency == "minutes":
+    # skedge = BackgroundScheduler({
+    #     'apscheduler.jobstores.default':{
+    #     'type': 'sqlalchemy',
+    #     'url': 'sqlite:///jobs.sqlite'}
+    # })
 
-        skedge.add_job(send_quote,  'interval', minutes=1, args=[fundname, num_shares, phone_num])
-        skedge.start()
+    if fund.freq == "quarter":
+        
+        skedge.remove_all_jobs()
+    if fund.freq == "minutes":
+        #job saved by a string of the funds id in default jobstores for later stoppage by id
+        skedge.add_job(send_quote,  'interval', minutes=1, args=[fund.fund_name, fund.num_shares, fund.phone_num], id=str(fund.id), replace_existing=True)
+       # skedge.shutdown()
+       #TODO move schedule start to main so that it is only started once and jobs added later
+        #skedge.start()
     # if frequency == "day":
     #     schedule.every().day.at("17:40").do(send_quote, fundname, num_shares, phone_num)
     #     while True:
@@ -137,3 +147,5 @@ def schedule_quote(fundname, num_shares, phone_num, frequency):#all this should 
     # while datetime.datetime.now() < next_check:
     #     time.sleep(1)  check condition once per second"""
 
+def unschedule_quote(fund):
+    skedge.remove_job(str(fund.id))

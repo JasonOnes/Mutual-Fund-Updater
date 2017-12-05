@@ -8,8 +8,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://Fund-Updater:steve123@l
  
 
  
- 
- 
 
 app.config['SQLALCHEMY_ECHO'] = True
 app.config['DEBUG'] = True

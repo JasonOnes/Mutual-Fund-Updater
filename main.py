@@ -6,29 +6,52 @@ import requests
 from multiprocessing import Process
 import psutil
 from socket import gethostname
-
+import apscheduler
 
 from models import User, Fund, Portfolio
 from app import app, db
 from hashutils import check_pw_hash
 from fundstuff import *
+from skedge import skedge
 #import fundstuff
 
+#**************MAX updates 10 - as per default jobstores threads***************
 def start_updates(username):
     # starts/restarts the update process, uses username since unique and a session attrib
     user = User.query.filter_by(username=username).first()
     portfolio = Portfolio.query.filter_by(holder_id=user.id).first()
     funds = Fund.query.filter_by(portfolio_id=portfolio.id).all()
     for fund in funds:
-        schedule_quote(fund.fund_name, fund.num_shares, fund.phone_num, fund.freq)
+        schedule_quote(fund)
     
-
+def stop_updates(username):
+    user = User.query.filter_by(username=username).first()
+    portfolio = Portfolio.query.filter_by(holder_id=user.id).first()
+    funds = Fund.query.filter_by(portfolio_id=portfolio.id).all()
+    for fund in funds:
+        unschedule_quote(fund)
+   
+       
 #TODO may need to use scheduler.shutdown() with stop_updates()
 # or maybe unschedule_quote() ?
 
+def stop_all_jobs(BackgroundScheduler):
+    for job in BackgroundScheduler.get_jobs():
+        print(job)
+        BackgroundScheduler.remove_job(job)
 
 @app.route('/')
 def _home():
+    #skedge.shutdown(wait=False)
+    #skedge.remove_all_jobs()
+    #skedge.remove_jobstore()
+    #skedge.print_jobs()
+    #skedge._lookup_jobstore()
+    #skedge._lookup_job(21)
+    print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+    
+    # skedge.shutdown()
+    # stop_all_jobs(skedge)
     return redirect('/intro')
 
 @app.route('/intro')
@@ -61,6 +84,8 @@ def add_user():
         db.session.commit()
         # need to do this AFTER new_user commited so id is generated
         new_user_portfolio = Portfolio(holder_id=new_user.id)
+        #start a schedule for user's updates (jobs)
+        skedge.start()
         db.session.add(new_user_portfolio)
         db.session.commit()
         session['username'] = new_user.username
@@ -193,13 +218,14 @@ def go_or_no():
         #tests if request with that fundname works before proceeding
         try:
             send_quote(fundname, num_shares, phone_num)
-            pass  
         #except Exception: #more specific ? doesn't like decimal.InvalidOperation
         except IndexError: # arises when api can't find fund in list (bogus)
             flash("Not a currently traded fund, check spelling, or try again later.", "negative")
             remove_by_fund_id(fund.id)
             return render_template('edit.html', username=username)
 
+        skedge.print_jobs()
+        #TODO figure out the problem here
         start_updates(username)
         return render_template('/confo.html', fund=fundname)
     else:
@@ -277,27 +303,15 @@ def remove_by_fund_id(fund_id):
     # stops the sending of quotes and deletes process and fund from db
     username = session['username']
     fund_to_stop = Fund.query.filter_by(id=fund_id).first()  
-
     fundname = fund_to_stop.fund_name
-
-    print("++++++FUNDNAME == " + fundname)
-    # proc_to_stop = Proc.query.filter_by(fund_to_check_by_id=fund_to_stop.id).first()
-    # # stops the sending quote process via the process id number
-    # try:
-    #     psutil.Process(proc_to_stop.p_id).terminate()
-    # #if going back and forth on browser screen list maybe cached but process gone
-    # # or if user decides they don't want the quote before process started
-    # except AttributeError:#, psutil.NoSuchProcess:
-    #     print("hmmm?")
-    #     pass
-    # except psutil.NoSuchProcess:
-    #     print("ahhh:")
-    #     pass
-
-    # # once messages are stopped then safe to delete
-    # Proc.query.filter_by(fund_to_check_by_id=fund_to_stop.id).delete()
+    try:
+        unschedule_quote(fund_to_stop)
+    # if fund doesn't go through no job will be started
+    except apscheduler.jobstores.base.JobLookupError:
+        pass
+    
     Fund.query.filter_by(id=fund_id).delete()
-    print("------------FUNDNAME NOW:  " + fundname)
+   
     db.session.commit()
     start_updates(username)
     return render_template('deleted.html', fund=fundname)
@@ -324,30 +338,24 @@ def del_user(username):
     funds = Fund.query.filter_by(portfolio_id=portfolio.id).all()
     #funds = Fund.query.all()
     for fund in funds:
-#         fund_to_stop = Fund.query.filter_by(fund_name=fund.fund_name).filter_by(holder_id=user.id).first()   
-#         proc_to_stop = Proc.query.filter_by(fund_to_check_by_id=fund_to_stop.id).first()
-#         try:
-#             psutil.Process(proc_to_stop.p_id).terminate()
-# #if going back and forth on browser screen list maybe cached but process gone
-# # or if user decides they don't want the quote before process started
-#         except AttributeError:
-#             pass
-#         except psutil.NoSuchProcess:
-#             pass
-#         except NoneType:
-#             pass
-#         Proc.query.filter_by(fund_to_check_by_id=fund_to_stop.id).delete()
+        unschedule_quote(fund)        
         Fund.query.filter_by(id=fund.id).delete()
-    #db.session.commit()
+   
+    #stop_updates(username)
     Portfolio.query.filter_by(id=portfolio.id).delete()
+   
     User.query.filter_by(username=username).delete()
     # remove user from session
+   
     del session['username']
     db.session.commit()
     return render_template('cancel-confirmed.html', username=username)
 
 
 if __name__ == "__main__":
+    
+    # skedge.remove_all_jobs()
+    # skedge.shutdown()
     app.run()
     # below for pythonanywhere deploy
     """

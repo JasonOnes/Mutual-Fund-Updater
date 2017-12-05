@@ -116,3 +116,6 @@ app.py
 #keep hash algo out
 hashutils.py
 
+#temp jobs not needed in git
+jobs.sqlite
+
