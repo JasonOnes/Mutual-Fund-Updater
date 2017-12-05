@@ -275,12 +275,10 @@ def remove_by_fund_id(fund_id):
     username = session['username']
     fund_to_stop = Fund.query.filter_by(id=fund_id).first()  
     fundname = fund_to_stop.fund_name
-    try:
-        unschedule_quote(fund_to_stop)
+    #
+    unschedule_quote(fund_to_stop)
     # if fund doesn't go through no job will be started
-    except apscheduler.jobstores.base.JobLookupError:
-        pass
-    
+    #
     Fund.query.filter_by(id=fund_id).delete()
    
     db.session.commit()
