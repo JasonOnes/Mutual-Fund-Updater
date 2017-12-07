@@ -150,10 +150,49 @@ def update_shares_or_no():
         flash("Here's the state of your funds currently.", "positive")
         return redirect('view-updates')
 
-@app.route("/edit-fund/<fund_id>")
+# @app.route("/edit-fund", methods=['POST'])
+@app.route("/edit-fund/<fund_id>", methods=['GET', 'POST'])
 def edit_fund(fund_id):
     fund_to_edit = Fund.query.filter_by(id=fund_id).first()
-    return render_template('edit-fund.html', fund=fund_to_edit)
+    if request.method == "GET":
+        return render_template('edit-fund.html', fund=fund_to_edit)
+    elif request.method == "POST":
+        return make_changes(fund_id)
+
+def make_changes(fund_id):
+    
+    fund = Fund.query.filter_by(id=fund_id).first()
+    new_freq = request.form['freq']
+    new_num_shares = request.form['num_shares']
+    new_phone = request.form['tel_contact']
+   
+    user = session['username']
+    holder = User.query.filter_by(username=user).first()
+    portfolio = Portfolio.query.filter_by(holder_id=holder.id).first()
+   
+    if new_phone != "":
+        phone_match = re.compile(r"\([2-9][0-8][0-9]\)[2-9][0-9]{2}-[0-9]{4}")
+        # this is the North American Numbering Plan
+        phone_is_recognized = phone_match.fullmatch(new_phone)
+        if phone_is_recognized:
+            pass
+        else:
+            flash("Not a valid American or Canadian phone number. Try again with (XXX)XXX-XXXX format.", "negative")
+            return render_template('edit-fund.html', fund=fund)
+    else: 
+        flash("Must provide a phone number", "negative")
+        return render_template('edit-fund.html', fund=fund)
+    #updated_fund = Fund.update().where(id = fund.id).values(freq=new_freq, num_shares=new_num_shares, phone_num=new_phone, portfolio_id=portfolio.id)
+    #updated_fund = Fund(fund.name, new_num_shares, new_freq, new_phone)
+    #db.session.add(updated_fund)
+    fund.num_shares = new_num_shares
+    fund.freq = new_freq
+    fund.phone_num = new_phone
+    db.session.commit()
+    start_updates(user)
+    user_funds = Fund.query.filter_by(portfolio_id=portfolio.id).all()
+    return render_template('view-updates.html', username=user, funds=user_funds)
+
 
 
 @app.route("/edit-funds-newshares/<fund_name>/<user_id>/<new_shares>", methods=['GET'])
