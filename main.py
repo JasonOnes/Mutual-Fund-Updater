@@ -12,7 +12,7 @@ from models import User, Fund, Portfolio
 from app import app, db
 from hashutils import check_pw_hash
 from fundstuff import *
-from skedge import skedge
+from skedge import skedge, skedge_check
 
 
 #**************MAX updates 10 - as per default jobstores threads***************
@@ -59,7 +59,7 @@ def add_user():
         # need to do this AFTER new_user commited so id is generated
         new_user_portfolio = Portfolio(holder_id=new_user.id)
         #start a schedule for user's updates (jobs) to be added to
-        skedge.start()
+        skedge_check()
         db.session.add(new_user_portfolio)
         db.session.commit()
         session['username'] = new_user.username
@@ -150,7 +150,13 @@ def update_shares_or_no():
         flash("Here's the state of your funds currently.", "positive")
         return redirect('view-updates')
 
-@app.route("/edit-funds/<fund_name>/<user_id>/<new_shares>", methods=['GET'])
+@app.route("/edit-fund/<fund_id>")
+def edit_fund(fund_id):
+    fund_to_edit = Fund.query.filter_by(id=fund_id).first()
+    return render_template('edit-fund.html', fund=fund_to_edit)
+
+
+@app.route("/edit-funds-newshares/<fund_name>/<user_id>/<new_shares>", methods=['GET'])
 def update_num_shares(fund_name, user_id, new_shares):
     username = session['username']
     user_id = int(user_id)

@@ -5,12 +5,13 @@
 
 {% if funds %}
 <p>Here are your funds and the number of shares you have:</p>
+<p>Click links to make changes.</p>
 {% else %}
 <p>You currently don't have any funds scheduled for updates.</p>   
 {% endif %}
 <ul>
     {% for fund in funds %}
-        <li>{{ fund.fund_name }} has {{ fund.num_shares}} shares and will update you every {{ fund.freq }}</li>
+        <li><a href="{{ url_for('edit_fund', fund_id=fund.id) }}">{{ fund.fund_name }}</a> has {{ fund.num_shares}} shares and will update you every {{ fund.freq }}</li>
     {% endfor %}
 </ul>
 {% endblock %}
