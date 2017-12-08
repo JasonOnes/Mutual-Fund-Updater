@@ -14,7 +14,7 @@ from hashutils import check_pw_hash
 from fundstuff import *
 from skedge import skedge, skedge_check
 
-
+#TODO apschedule not working on live deploy!!
 #**************MAX updates 10 - as per default jobstores threads***************
 def start_updates(username):
     # starts/restarts the update process, uses username since unique and a session attrib 
