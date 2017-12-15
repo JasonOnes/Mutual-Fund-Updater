@@ -7,12 +7,16 @@ from twilio.rest import Client
 from apscheduler.jobstores.base import JobLookupError
 from time import sleep
 from bs4 import BeautifulSoup as bs 
+import os 
+import logging
+from dotenv import load_dotenv, find_dotenv
 
 #TODO refactor functions to minimize arguments to one
 
 from skedge import skedge, skedge_check
 
-from tokens import x, y, phone
+#from tokens import x, y, phone
+
 
 def getQuote(fundname):
     # retrieves the last price for fund
@@ -63,15 +67,19 @@ def current_value(fundname, num_shares):
 def send_quote(fundname, num_shares, phone_num):
     # TODO maybe put target conditionals here, if int(value) = fundname.target_value: msg else: pass (?)
     # add a target paramater to send_quote target, then convert to money for comparison?"""
-    
+    # instead of tokens file twilio sensitives kept in env
+   
+    dotenv_path = os.path.join(os.path.dirname(__file__), "fund.env")
+    load_dotenv(dotenv_path)
+
     value = current_value(fundname, num_shares)
     msg = "Today you hold " + str(value) + " of {}.".format(fundname)
-    account_sid = x
-    auth_token = y
+    account_sid = os.environ.get("ACCOUNT_SID")
+    auth_token = os.environ.get("AUTH_TOKEN")
     client = Client(account_sid, auth_token) 
     message = client.messages.create(
         to=str(phone_num),
-        from_= phone,
+        from_= os.environ.get("PHONE"),
         body=msg
     ) 
     return print(message.sid)

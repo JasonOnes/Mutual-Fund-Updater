@@ -9,7 +9,10 @@ from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
 
 jobstores = {
     #'mongo': MongoDBJobStore(),
-    'default': SQLAlchemyJobStore(url='sqlite:///jobs.sqlite')
+   
+    # rds_url = 'mysql+pymysql://jasonones:rK4RKUm308JL@mysqlforfundr.cxsze9sotcbm.us-west-2.rds.amazonaws.com:3306/FunUp'
+    'default': SQLAlchemyJobStore(url='mysql+pymysql://jasonones:rK4RKUm308JL@mysqlforfundr.cxsze9sotcbm.us-west-2.rds.amazonaws.com:3306/FunUp')
+    #'default': SQLAlchemyJobStore(url='sqlite:///jobs.sqlite')
 }
 executors = {
     'default': ThreadPoolExecutor(20),

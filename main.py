@@ -25,6 +25,9 @@ def start_updates(username):
         schedule_quote(fund)
 
 @app.route('/')
+# def index():
+#     connect()
+#     return "Hello World!", 200
 def _home():
     return redirect('/intro')
 
