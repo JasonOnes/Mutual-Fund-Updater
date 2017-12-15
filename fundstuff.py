@@ -3,16 +3,13 @@ import urllib
 from requests.exceptions import ConnectionError
 from moneyed import Money, USD
 from twilio.rest import Client 
-#import schedule #TODO look into APScheduler
 from apscheduler.jobstores.base import JobLookupError
 from time import sleep
 from bs4 import BeautifulSoup as bs 
 
-#TODO refactor functions to minimize arguments to one
-
-from skedge import skedge, skedge_check
-
+from skedge import skedge, skedge_start_with_check
 from tokens import x, y, phone
+
 
 def getQuote(fundname):
     # retrieves the last price for fund
@@ -52,7 +49,8 @@ def getQuote(fundname):
         print("yahoo error, urlib")
         sleep(1)
         return getQuote(fundname) # if api dead infinite loop! limit number with conditional + send warning to user?
-    
+
+#TODO refactor functions to minimize arguments to one 
 def current_value(fundname, num_shares): 
     # returns user's money position of given fund
     quote = getQuote(fundname)
@@ -76,46 +74,44 @@ def send_quote(fundname, num_shares, phone_num):
     ) 
     return print(message.sid)
     
-
-    #TODO consider using datetime.timedelta or chron
 def schedule_quote(fund):
 
     arguments = [fund.fund_name, fund.num_shares, fund.phone_num]
     if fund.freq == "minutes":
         #job saved by a string of the funds id in default jobstores for later stoppage by id
         skedge.add_job(send_quote, args=arguments, trigger='interval', minutes=1, id=str(fund.id), replace_existing=True)
-        print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
         skedge.print_jobs()   
 
-        skedge_check()
+        skedge_start_with_check()
+        
        
     elif fund.freq == "day":
         #TODO ask for time desired
         #skedge.add_job(send_quote, 'interval', hours=24, args=[fund.fund_name, fund.num_shares, fund.ph])
         skedge.add_job(send_quote, args=arguments, trigger='cron', day_of_week='mon-fri', hour=15, minute=5)
-        skedge_check()
+        skedge_start_with_check()
 
     elif fund.freq == "week":
         # day of week 5=>'fri', used numbers easier to get and convert from user
         skedge.add_job(send_quote, args=arguments, trigger='cron', day_of_week=2, hour=15, minute=10)
-        skedge_check()
+        skedge_start_with_check()
      
     elif fund.freq == "month":
         # TODO convert day to integer form for easy of changing dependent on user
         skedge.add_job(send_quote, args=arguments, trigger='cron', day='last fri')
-        skedge_check()
+        skedge_start_with_check()
    
     elif fund.freq == "quarter":
         # check beging or end of quarter? or just specify first/last day of every quarter
         skedge.add_job(send_quote, args=arguments, trigger='cron', day='last fri')
-        skedge_check()
+        skedge_start_with_check()
 
     elif fund.freq == "year":
         # first day of the year!
         #TODO I know below won't work but some incrementing function w/i send_quote if year?
         year = 2018
         skedge.add_job(send_quote, args=arguments, trigger='cron', year=year, month=1, day=1, hour=16)
-        skedge_check()
+        skedge_start_with_check()
         year += 1
 
             

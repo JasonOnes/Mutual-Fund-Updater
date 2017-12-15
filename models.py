@@ -8,9 +8,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50))
     pw_hash = db.Column(db.String(100))
-    
-    # TODO phone or email contact = db.Column(db.) 
-    
+    # possibly add email later for additional contact choice
 
     def __init__(self, username, password):
         self.username = username

@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1>sorry {{ username }} still working on it!!   </h1>
+<h1>{{ username }}</h1>
 <!-- TODO for username iterated through Fund.Select all with holder = username -->
 <!-- {#<h2>Here's the funds {{ for fund : username.fund }}#} --> 
-<p>here are your funds for removal</p>   
+<p>Here are the funds you may remove from your notices portfolio: </p>   
 <ul>
     {% for fund in funds %}
         <li><a href="{{ url_for('remove_by_fund_id', fund_id=fund.id) }}">{{ fund.fund_name }} </li>

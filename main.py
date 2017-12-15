@@ -12,9 +12,9 @@ from models import User, Fund, Portfolio
 from app import app, db
 from hashutils import check_pw_hash
 from fundstuff import *
-from skedge import skedge, skedge_check
+from skedge import skedge, skedge_start_with_check
 
-#TODO apschedule not working on live deploy!!
+
 #**************MAX updates 10 - as per default jobstores threads***************
 def start_updates(username):
     # starts/restarts the update process, uses username since unique and a session attrib 
@@ -59,7 +59,7 @@ def add_user():
         # need to do this AFTER new_user commited so id is generated
         new_user_portfolio = Portfolio(holder_id=new_user.id)
         #start a schedule for user's updates (jobs) to be added to
-        skedge_check()
+        skedge_start_with_check()
         db.session.add(new_user_portfolio)
         db.session.commit()
         session['username'] = new_user.username
@@ -139,7 +139,6 @@ def update_shares_or_no():
         fund_name = request.form['fund_name']
         this_user = User.query.filter_by(username=username).first()
         this_portfolio = Portfolio.query.filter_by(holder_id=this_user.id).first()
-        #this_portfolio = Portfolio.get_by_user_id(this_user.id)
         fund = Fund.query.filter_by(portfolio_id=this_portfolio.id).filter_by(fund_name=fund_name).first()
        
         return redirect('edit-funds/' + fund.fund_name + "/" + str(this_user.id) + "/" + str(new_shares))
@@ -150,7 +149,6 @@ def update_shares_or_no():
         flash("Here's the state of your funds currently.", "positive")
         return redirect('view-updates')
 
-# @app.route("/edit-fund", methods=['POST'])
 @app.route("/edit-fund/<fund_id>", methods=['GET', 'POST'])
 def edit_fund(fund_id):
     fund_to_edit = Fund.query.filter_by(id=fund_id).first()
@@ -182,9 +180,7 @@ def make_changes(fund_id):
     else: 
         flash("Must provide a phone number", "negative")
         return render_template('edit-fund.html', fund=fund)
-    #updated_fund = Fund.update().where(id = fund.id).values(freq=new_freq, num_shares=new_num_shares, phone_num=new_phone, portfolio_id=portfolio.id)
-    #updated_fund = Fund(fund.name, new_num_shares, new_freq, new_phone)
-    #db.session.add(updated_fund)
+    
     fund.num_shares = new_num_shares
     fund.freq = new_freq
     fund.phone_num = new_phone
@@ -201,14 +197,12 @@ def update_num_shares(fund_name, user_id, new_shares):
     user_id = int(user_id)
     new_shares = float(new_shares)
     this_port = Portfolio.query.filter_by(holder_id=user_id).first()
-    #this_port = Portfolio.get_by_user_id(user_id)
     fund_with_same_name = Fund.query.filter_by(fund_name=fund_name).filter_by(portfolio_id=this_port.id).first()
 
     old_num_shares = fund_with_same_name.num_shares
     new_num_shares = old_num_shares + new_shares
     fund_with_same_name.num_shares = new_num_shares
 
-    # db.session.add(fund_with_same_name)
     db.session.commit()
     start_updates(username)
     flash(fund_name + " has been updated with " + str(new_shares) + " new shares.", "positive")
@@ -225,7 +219,6 @@ def go_or_no():
     frequency = request.form['freq']
 
     user = User.query.filter_by(username=username).first() 
-    #portfolio = Portfolio.get_by_user_id(user.id)
     portfolio = Portfolio.query.filter_by(holder_id=user.id).first()
     fund = Fund.query.filter_by(fund_name=fundname).filter_by(portfolio_id=portfolio.id).first()
 
@@ -234,14 +227,12 @@ def go_or_no():
         #tests if request with that fundname works before proceeding
         try:
             send_quote(fundname, num_shares, phone_num)
-        #except Exception: #more specific ? doesn't like decimal.InvalidOperation
         except IndexError: # arises when api can't find fund in list (bogus)
             flash("Not a currently traded fund, check spelling, or try again later.", "negative")
             remove_by_fund_id(fund.id)
             return render_template('edit.html', username=username)
 
         skedge.print_jobs()
-        #TODO figure out the problem here
         start_updates(username)
         return render_template('/confo.html', fund=fundname)
     else:
@@ -293,7 +284,6 @@ def show_updates():
             username = session['username']
             _user = User.query.filter_by(username=username).first()
             _portfolio = Portfolio.query.filter_by(holder_id=_user.id).first()
-           # _portfolio = Portfolio.get_by_user_id(_user.id)
             funds = Fund.query.filter_by(portfolio_id=_portfolio.id).all() 
             return render_template('view-updates.html', username=username, funds=funds)
     except KeyError:
@@ -307,7 +297,6 @@ def get_delete():
             username = session['username']
             _user = User.query.filter_by(username=username).first()
             _port = Portfolio.query.filter_by(holder_id=_user.id).first()
-            #_port = Portfolio.get_by_user_id(_user.id)
             funds = Fund.query.filter_by(portfolio_id=_port.id).all() 
             return render_template('funds-for-removal.html', username=username, funds=funds)
     except KeyError:
@@ -320,10 +309,8 @@ def remove_by_fund_id(fund_id):
     username = session['username']
     fund_to_stop = Fund.query.filter_by(id=fund_id).first()  
     fundname = fund_to_stop.fund_name
-    #
     unschedule_quote(fund_to_stop)
     # if fund doesn't go through no job will be started
-    #
     Fund.query.filter_by(id=fund_id).delete()
    
     db.session.commit()
@@ -348,16 +335,12 @@ def verify_cancel():
 def del_user(username):
     user = User.query.filter_by(username=username).first()
     portfolio = Portfolio.query.filter_by(holder_id=user.id).first()
-    #portfolio = Portfolio.get_by_user_id(user.id)
     funds = Fund.query.filter_by(portfolio_id=portfolio.id).all()
-    #funds = Fund.query.all()
     for fund in funds:
         unschedule_quote(fund)        
         Fund.query.filter_by(id=fund.id).delete()
-   
-    #stop_updates(username)
+
     Portfolio.query.filter_by(id=portfolio.id).delete()
-   
     User.query.filter_by(username=username).delete()
     # remove user from session
     del session['username']
