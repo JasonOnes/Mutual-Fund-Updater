@@ -7,9 +7,11 @@ from apscheduler.jobstores.base import JobLookupError
 from time import sleep
 from bs4 import BeautifulSoup as bs 
 
+ 
+
 from skedge import skedge, skedge_start_with_check
 from tokens import x, y, phone
-
+from app import celery_tasker
 
 def getQuote(fundname):
     # retrieves the last price for fund
@@ -58,6 +60,7 @@ def current_value(fundname, num_shares):
     value = num_shares * price
     return value
 
+@celery_tasker.task # marks send_quote function as a background task
 def send_quote(fundname, num_shares, phone_num):
     # TODO maybe put target conditionals here, if int(value) = fundname.target_value: msg else: pass (?)
     # add a target paramater to send_quote target, then convert to money for comparison?"""
@@ -74,16 +77,20 @@ def send_quote(fundname, num_shares, phone_num):
     ) 
     return print(message.sid)
     
-def schedule_quote(fund):
 
+def schedule_quote(fund):
+    
     arguments = [fund.fund_name, fund.num_shares, fund.phone_num]
+    #task = send_quote_task.(args=arguments, )
     if fund.freq == "minutes":
         #job saved by a string of the funds id in default jobstores for later stoppage by id
-        skedge.add_job(send_quote, args=arguments, trigger='interval', minutes=1, id=str(fund.id), replace_existing=True)
-        skedge.print_jobs()   
+        # skedge.add_job(send_quote, args=arguments, trigger='interval', minutes=1, id=str(fund.id), replace_existing=True)
+        # skedge.print_jobs()   
+        # skedge_start_with_check()
 
-        skedge_start_with_check()
-        
+        #task = 
+        send_quote.apply_async(args=[fund.fund_name, fund.num_shares, fund.phone_num], countdown=60)
+        #send_quote(fund.fund_name, fund.num_shares, fund.phone_num).celery_tasker.schedules.schedule(run_every=60)
        
     elif fund.freq == "day":
         #TODO ask for time desired

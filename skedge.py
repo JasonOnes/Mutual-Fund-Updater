@@ -5,6 +5,7 @@ from apscheduler.schedulers import SchedulerAlreadyRunningError
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
 
+import celery 
 
 jobstores = {
     # 'mongo': MongoDBJobStore(),
