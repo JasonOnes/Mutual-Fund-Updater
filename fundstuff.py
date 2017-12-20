@@ -3,7 +3,9 @@ import urllib
 from requests.exceptions import ConnectionError
 from moneyed import Money, USD
 from twilio.rest import Client 
-#import schedule #TODO look into APScheduler
+
+from zappa.async import task
+
 from apscheduler.jobstores.base import JobLookupError
 from time import sleep
 from bs4 import BeautifulSoup as bs 
@@ -85,7 +87,6 @@ def send_quote(fundname, num_shares, phone_num):
     return print(message.sid)
     
 
-    #TODO consider using datetime.timedelta or chron
 def schedule_quote(fund):
 
     arguments = [fund.fund_name, fund.num_shares, fund.phone_num]
