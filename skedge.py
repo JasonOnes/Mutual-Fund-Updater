@@ -6,7 +6,7 @@ from apscheduler.schedulers import SchedulerAlreadyRunningError
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
 
-from zappa.async import task
+# from zappa.async import task
 
 jobstores = {
     #'mongo': MongoDBJobStore(),
@@ -27,7 +27,7 @@ skedge = BackgroundScheduler(jobstores=jobstores, executors=executors, job_defau
 
 
 
-@task # zappa task decorator to make a separate Lambda (AWS) instance when called
+# @task # zappa task decorator to make a separate Lambda (AWS) instance when called
 def skedge_check():
     try:
         skedge.start() 

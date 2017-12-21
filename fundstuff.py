@@ -4,7 +4,7 @@ from requests.exceptions import ConnectionError
 from moneyed import Money, USD
 from twilio.rest import Client 
 
-from zappa.async import task
+# from zappa.async import task
 
 from apscheduler.jobstores.base import JobLookupError
 from time import sleep
@@ -93,9 +93,7 @@ def schedule_quote(fund):
     if fund.freq == "minutes":
         #job saved by a string of the funds id in default jobstores for later stoppage by id
         skedge.add_job(send_quote, args=arguments, trigger='interval', minutes=1, id=str(fund.id), replace_existing=True)
-        print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-        skedge.print_jobs()   
-
+       
         skedge_check()
        
     elif fund.freq == "day":

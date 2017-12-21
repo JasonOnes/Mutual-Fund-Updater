@@ -25,9 +25,6 @@ def start_updates(username):
         schedule_quote(fund)
 
 @app.route('/')
-# def index():
-#     connect()
-#     return "Hello World!", 200
 def _home():
     return redirect('/intro')
 
@@ -162,8 +159,7 @@ def edit_fund(fund_id):
     elif request.method == "POST":
         return make_changes(fund_id)
 
-def make_changes(fund_id):
-    
+def make_changes(fund_id): 
     fund = Fund.query.filter_by(id=fund_id).first()
     new_freq = request.form['freq']
     new_num_shares = request.form['num_shares']
