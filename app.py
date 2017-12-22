@@ -5,11 +5,12 @@ import logging
 from dotenv import load_dotenv, find_dotenv
 import pymysql
 
+#from api import controller
+import api
+application = api = Flask(__name__)
 
-app = Flask(__name__)
-# app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://FunUP:jasononesrK4RKU'
-#app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://Fund-Updater:steve123@localhost:3306/Fund-Updater'
- 
+# application.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://FunUP:jasononesrK4RKU'
+#application.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://Fund-Updater:steve123@localhost:3306/Fund-Updater'
 #links the config vars to path then to environment implicitly
 dotenv_path = path.join(path.dirname(__file__), "fund.env")
 load_dotenv(dotenv_path)
@@ -30,7 +31,7 @@ logger.setLevel(logging.INFO)
 
 cursor = pymysql.cursors.DictCursor
 SQLALCHEMY_DATABASE_URI = pymysql.connect(RDS_HOST, user=NAME, passwd=PASSWORD, db=DB_NAME, port=RDS_PORT, cursorclass=cursor, connect_timeout=5)
-app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
+application.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 
 def connect():
     try:
@@ -44,14 +45,16 @@ def connect():
 """
 
 SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://'+NAME+':'+PASSWORD+'@'+RDS_HOST+'/'+DB_NAME
-app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
-#app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://Fund-Updater:steve123@localhost:3306/Fund-Updater'
-#app.config['SQLALCHEMY_ECHO'] = True
-app.config['DEBUG'] = True
-app.config['SQLALCHEMY_POOL_RECYCLE']=3600
+application.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
+#application.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://Fund-Updater:steve123@localhost:3306/Fund-Updater'
+#application.config['SQLALCHEMY_ECHO'] = True
+# application.config['DEBUG'] = True
+# application.config['SQLALCHEMY_POOL_RECYCLE']=3600
 SQLALCHEMY_POOL_RECYCLE = 3600
 
-app.secret_key = S_KEY
-# app.secret_key = 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
+# WTF_CSRF_ENABLED = True
 
-db = SQLAlchemy(app)
+application.secret_key = 'dI1!52oXXYd$UosdivhjJJ'
+# application.secret_key = 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
+
+db = SQLAlchemy(application)

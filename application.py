@@ -9,7 +9,7 @@ from socket import gethostname
 import apscheduler
 
 from models import User, Fund, Portfolio
-from app import app, db
+from app import application, db
 from hashutils import check_pw_hash
 from fundstuff import *
 from skedge import skedge, skedge_check
@@ -24,19 +24,19 @@ def start_updates(username):
     for fund in funds:
         schedule_quote(fund)
 
-@app.route('/')
+@application.route('/')
 def _home():
     return redirect('/intro')
 
-@app.route('/intro')
+@application.route('/intro')
 def homepage():
     return render_template('intro.html')
 
-@app.route('/sign-up-form')
+@application.route('/sign-up-form')
 def signup():
     return render_template('sign-up-form.html')
 
-@app.route('/continue', methods=['POST'])
+@application.route('/continue', methods=['POST'])
 def add_user():
     name = request.form['username']
     psw = request.form['passw']
@@ -66,7 +66,7 @@ def add_user():
         flash("Logged IN!", "positive")
         return render_template('edit.html', username=session['username'])       
 
-@app.route('/edit', methods=['GET', 'POST'])
+@application.route('/edit', methods=['GET', 'POST'])
 def edit():
     if request.method == "GET":
         try:
@@ -130,7 +130,7 @@ def add_fund():
         flash("Not a valid fund", "negative")
         return render_template('edit.html', username=holder.username)
 
-@app.route("/share-update", methods=['POST'])
+@application.route("/share-update", methods=['POST'])
 def update_shares_or_no():
     answer = request.form['shares-update']
     username = session['username']
@@ -150,8 +150,8 @@ def update_shares_or_no():
         flash("Here's the state of your funds currently.", "positive")
         return redirect('view-updates')
 
-# @app.route("/edit-fund", methods=['POST'])
-@app.route("/edit-fund/<fund_id>", methods=['GET', 'POST'])
+# @application.route("/edit-fund", methods=['POST'])
+@application.route("/edit-fund/<fund_id>", methods=['GET', 'POST'])
 def edit_fund(fund_id):
     fund_to_edit = Fund.query.filter_by(id=fund_id).first()
     if request.method == "GET":
@@ -194,7 +194,7 @@ def make_changes(fund_id):
 
 
 
-@app.route("/edit-funds-newshares/<fund_name>/<user_id>/<new_shares>", methods=['GET'])
+@application.route("/edit-funds-newshares/<fund_name>/<user_id>/<new_shares>", methods=['GET'])
 def update_num_shares(fund_name, user_id, new_shares):
     username = session['username']
     user_id = int(user_id)
@@ -213,7 +213,7 @@ def update_num_shares(fund_name, user_id, new_shares):
     flash(fund_name + " has been updated with " + str(new_shares) + " new shares.", "positive")
     return redirect("view-updates")
 
-@app.route("/confo", methods=['POST'])
+@application.route("/confo", methods=['POST'])
 def go_or_no():
     # confirms whether user wants to receive messages with data provided
     answer = request.form['confirm']
@@ -247,7 +247,7 @@ def go_or_no():
         # user doesn't agree to inputs or changes mind fund removed 
         return remove_by_fund_id(fund.id)
 
-@app.route('/login',methods=['GET', 'POST'])
+@application.route('/login',methods=['GET', 'POST'])
 def login():
     if request.method == "GET":
         try: 
@@ -274,7 +274,7 @@ def login():
             flash("Maybe you don't have an account, you can sign up for one with the link below.", "negative")
             return redirect('/login')
 
-@app.route('/logout')
+@application.route('/logout')
 def logout():
     try:
         if session['username']:
@@ -285,7 +285,7 @@ def logout():
         flash("You aren't currently logged in.", "negative")
         return redirect('/')    
 
-@app.route('/view-updates')
+@application.route('/view-updates')
 def show_updates():
     try:
         if session['username']:
@@ -299,7 +299,7 @@ def show_updates():
         flash("You aren't logged in!", "negative")
         return redirect('/')
 
-@app.route('/delete-fund')
+@application.route('/delete-fund')
 def get_delete():
     try:
         if session['username']:
@@ -313,7 +313,7 @@ def get_delete():
         flash("You aren't logged in!", "negative")
         return redirect('/')
         
-@app.route('/deleted/<fund_id>')
+@application.route('/deleted/<fund_id>')
 def remove_by_fund_id(fund_id):
     # stops the sending of quotes and deletes process and fund from db
     username = session['username']
@@ -329,7 +329,7 @@ def remove_by_fund_id(fund_id):
     start_updates(username)
     return render_template('deleted.html', fund=fundname)
         
-@app.route('/cancel', methods=['GET', 'POST']) 
+@application.route('/cancel', methods=['GET', 'POST']) 
 def verify_cancel():
     if request.method == "GET":
         username = session['username']
@@ -343,7 +343,7 @@ def verify_cancel():
         elif answer == 'no':
             return redirect('/view-updates')
 
-@app.route('/cancel/<username>', methods=['GET', 'POST'])
+@application.route('/cancel/<username>', methods=['GET', 'POST'])
 def del_user(username):
     user = User.query.filter_by(username=username).first()
     portfolio = Portfolio.query.filter_by(holder_id=user.id).first()
@@ -366,9 +366,9 @@ def del_user(username):
 
 if __name__ == "__main__":
     
-    app.run()
+    application.run()
     # below for pythonanywhere deploy
     """
     if 'liveconsole' not in gethostname():
-            app.run()
+            application.run()
     """
