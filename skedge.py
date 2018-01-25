@@ -1,4 +1,4 @@
-from pytz import utc
+from pytz import timezone
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers import SchedulerAlreadyRunningError
@@ -18,7 +18,10 @@ job_defaults = {
     'coalesce': True, # if app interrupted not inundated with all the missing job executions (eg 100 texts about vtsmx)
     'max_instances': 10
 }
-skedge = BackgroundScheduler(jobstores=jobstores, executors=executors, job_defaults=job_defaults, timezone=utc, id=id)
+
+# TODO add user input of timezone, localize()
+pst = timezone('US/Pacific')
+skedge = BackgroundScheduler(jobstores=jobstores, executors=executors, job_defaults=job_defaults, timezone=pst, id=id)
 
 
 def skedge_start_with_check():

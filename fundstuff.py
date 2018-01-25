@@ -22,7 +22,7 @@ def getQuote(fundname):
        # below uses yahoo finance history as work around
         data = []
         url = "https://finance.yahoo.com/quote/" + fundname + "/history/"
-        rows = bs(urllib.request.urlopen(url).read()).findAll('table')[0].tbody.findAll('tr')
+        rows = bs(urllib.request.urlopen(url).read(), "lxml").findAll('table')[0].tbody.findAll('tr')
 
         for each_row in rows:
             divs = each_row.findAll('td')
@@ -88,7 +88,8 @@ def schedule_quote(fund):
     elif fund.freq == "day":
         #TODO ask for time desired
         #skedge.add_job(send_quote, 'interval', hours=24, args=[fund.fund_name, fund.num_shares, fund.ph])
-        skedge.add_job(send_quote, args=arguments, trigger='cron', day_of_week='mon-fri', hour=15, minute=5)
+        skedge.add_job(send_quote, args=arguments, trigger='cron', day_of_week='mon-fri', hour=16, minute=20)
+        skedge.print_jobs()
         skedge_start_with_check()
 
     elif fund.freq == "week":

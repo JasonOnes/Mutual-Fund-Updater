@@ -11,7 +11,8 @@
 {% endif %}
 <ul>
     {% for fund in funds %}
-        <li><a href="{{ url_for('edit_fund', fund_id=fund.id) }}">{{ fund.fund_name }}</a> has {{ fund.num_shares}} shares and will update you every {{ fund.freq }}</li>
+        <li><a href="{{ url_for('edit_fund', fund_id=fund.id) }}">{{ fund.fund_name }}</a> has {{ fund.num_shares}} shares and will update you every {{ fund.freq }}
+        at {{ fund.phone_num }}.</li>
     {% endfor %}
 </ul>
 {% endblock %}
